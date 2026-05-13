@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Estado clínico simulado</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='estilo.css') }}" />
+  </head>
+  <body>
+    <main class="panel">
+      <h1>Formulario académico</h1>
+      <p class="aviso">
+        Ejercicio universitario: no usar para decisiones médicas reales. Complete al menos tres campos
+        (presión sistólica y diastólica cuentan; añada otro más).
+      </p>
+
+      <form id="formulario">
+        <label>
+          Presión sistólica (mmHg)
+          <input name="presion_sistolica" type="number" step="1" required />
+        </label>
+        <label>
+          Presión diastólica (mmHg)
+          <input name="presion_diastolica" type="number" step="1" required />
+        </label>
+        <label>
+          Nivel colesterol (1–3)
+          <input name="nivel_colesterol" type="number" min="1" max="3" step="1" />
+        </label>
+        <label>
+          Nivel glucosa (1–3)
+          <input name="nivel_glucosa" type="number" min="1" max="3" step="1" />
+        </label>
+        <label class="inline">
+          <input name="presencia_enfermedad" type="checkbox" value="1" />
+          Presencia de enfermedad en registro (1 si marca)
+        </label>
+        <label class="inline">
+          <input name="fumador" type="checkbox" value="1" />
+          Fumador
+        </label>
+
+        <button type="submit">Consultar estado simulado</button>
+      </form>
+
+      <section id="resultado" hidden>
+        <h2>Resultado</h2>
+        <pre id="salida"></pre>
+      </section>
+    </main>
+
+    <script>
+      const form = document.getElementById("formulario");
+      const salida = document.getElementById("salida");
+      const bloque = document.getElementById("resultado");
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const fd = new FormData(form);
+        const payload = {
+          presion_sistolica: fd.get("presion_sistolica"),
+          presion_diastolica: fd.get("presion_diastolica"),
+        };
+        const col = fd.get("nivel_colesterol");
+        const glu = fd.get("nivel_glucosa");
+        if (col !== "") payload.nivel_colesterol = col;
+        if (glu !== "") payload.nivel_glucosa = glu;
+        if (fd.get("presencia_enfermedad")) payload.presencia_enfermedad = 1;
+        else payload.presencia_enfermedad = 0;
+        if (fd.get("fumador")) payload.fumador = true;
+        else payload.fumador = false;
+
+        const res = await fetch("/predecir", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        salida.textContent = JSON.stringify(data, null, 2);
+        bloque.hidden = false;
+      });
+    </script>
+  </body>
+</html>
