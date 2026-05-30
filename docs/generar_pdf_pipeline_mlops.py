@@ -17,6 +17,9 @@ from reportlab.lib.units import cm
 from reportlab.platypus import Image, PageBreak, Paragraph, SimpleDocTemplate, Spacer
 
 BASE = Path(__file__).resolve().parent
+IMGS = BASE / "imgs"
+IMGS.mkdir(exist_ok=True)
+DIAG_HERO = IMGS / "ml-pipeline-estado-clinico.png"
 DIAG_E2E = BASE / "diagrama_pipeline_e2e.png"
 DIAG_DEPLOY = BASE / "diagrama_despliegue_hibrido.png"
 DIAG_CICD = BASE / "diagrama_cicd_mlops.png"
@@ -42,6 +45,73 @@ def _flecha(ax, x1, y1, x2, y2):
         linewidth=1.0, color="#34495e",
     )
     ax.add_patch(arr)
+
+
+def _region(ax, x, y, w, h, titulo, color="#f8f9fa"):
+    rect = FancyBboxPatch(
+        (x, y), w, h,
+        boxstyle="round,pad=0.02,rounding_size=0.15",
+        linewidth=1.5, edgecolor="#566573", facecolor=color, alpha=0.35,
+    )
+    ax.add_patch(rect)
+    ax.text(x + w / 2, y + h - 0.22, titulo, ha="center", fontsize=10, weight="bold", color="#1a5276")
+
+
+def dibujar_pipeline_principal() -> Path:
+    """Diagrama estilo mlops-sample: Offline Training | Predictions + Bonus."""
+    fig, ax = plt.subplots(figsize=(13, 9), dpi=150)
+    ax.set_xlim(0, 13)
+    ax.set_ylim(0, 9)
+    ax.axis("off")
+    ax.text(6.5, 8.65, "Pipeline MLOps — Estado clínico simulado v2.1", ha="center", fontsize=14, weight="bold")
+    ax.text(
+        6.5, 8.25,
+        "Inspirado en estructura Offline Training | Predictions (referencia: avila196/mlops-sample)",
+        ha="center", fontsize=7.5, style="italic", color="#555",
+    )
+
+    _caja(ax, 4.8, 7.35, 3.4, 0.65, "GitHub  +  GitHub Actions\n(CI/CD · versionado · tests)", "#d5dbdb", fs=8)
+    _flecha(ax, 6.5, 7.35, 3.5, 6.55)
+    _flecha(ax, 6.5, 7.35, 9.5, 6.55)
+
+    _region(ax, 0.4, 2.8, 5.8, 3.6, "OFFLINE TRAINING", "#ebf5fb")
+    offline = [
+        (0.7, 5.5, "Data Input\nDVC · MinIO/S3 · Great Expectations", "#d4e6f1"),
+        (0.7, 4.35, "Model Iterations\nFeast · sklearn · LightGBM · Optuna · MLflow", "#fdebd0"),
+        (0.7, 3.2, "Model Selection & Evaluation\nF1 · recall AGUDA · SHAP · k-fold", "#fdebd0"),
+        (0.7, 2.05, "¿Listo para producción?\nMLflow Registry · gate vs baseline reglas", "#e8daef"),
+    ]
+    for x, y, t, c in offline:
+        _caja(ax, x, y, 5.2, 0.95, t, c, fs=7.5)
+    for i in range(len(offline) - 1):
+        _flecha(ax, 3.3, offline[i][1], 3.3, offline[i + 1][1] + 0.95)
+
+    _region(ax, 6.8, 2.8, 5.8, 3.6, "PREDICTIONS (SERVING)", "#eafaf1")
+    pred = [
+        (7.1, 5.5, "Model Deployment\nDocker multi-stage · GHCR · serialización joblib", "#d5f5e3"),
+        (7.1, 4.35, "Inferencia local\nDocker Compose · localhost:5000 · POST /predecir", "#d5f5e3"),
+        (7.1, 3.2, "Inferencia cloud\nCloud Run · HTTPS · API key", "#d5f5e3"),
+        (7.1, 2.05, "Médico\n≥3 valores · 4 estados clínicos simulados", "#eaeded"),
+    ]
+    for x, y, t, c in pred:
+        _caja(ax, x, y, 5.2, 0.95, t, c, fs=7.5)
+    for i in range(len(pred) - 1):
+        _flecha(ax, 9.7, pred[i][1], 9.7, pred[i + 1][1] + 0.95)
+
+    _flecha(ax, 5.9, 4.0, 7.1, 4.8)
+
+    _region(ax, 0.4, 0.45, 12.2, 2.05, "BONUS — Operación continua", "#fdedec")
+    _caja(ax, 0.7, 0.75, 3.6, 1.2, "Model Monitoring\nPrometheus · Grafana · Evidently drift", "#fadbd8", fs=7.5)
+    _caja(ax, 4.6, 0.75, 3.6, 1.2, "Retraining\nGitHub Actions / Prefect · triggers F1/drift", "#fadbd8", fs=7.5)
+    _caja(ax, 8.5, 0.75, 3.6, 1.2, "MVP implementado\nreglas modelo_simulado.py · Flask · Docker", "#e8daef", fs=7.5)
+    _flecha(ax, 2.5, 2.8, 2.5, 1.95)
+    _flecha(ax, 6.4, 1.35, 3.3, 2.05)
+    _flecha(ax, 10.3, 1.95, 10.3, 2.8)
+
+    fig.tight_layout()
+    fig.savefig(DIAG_HERO, bbox_inches="tight", facecolor="white")
+    plt.close(fig)
+    return DIAG_HERO
 
 
 def dibujar_pipeline_e2e() -> Path:
@@ -205,21 +275,24 @@ def construir_pdf() -> Path:
                             topMargin=1.7 * cm, bottomMargin=1.7 * cm)
     story = []
 
-    story.append(_p("Propuesta pipeline MLOps end-to-end v2.0", titulo))
+    story.append(_p("Propuesta pipeline MLOps end-to-end v2.1", titulo))
     story.append(_p(
         "<b>Proyecto:</b> Estado clínico simulado (2MLops). "
+        "Estructura inspirada en avila196/mlops-sample (Offline Training | Predictions). "
         "<b>Producción objetivo:</b> LightGBM + MLflow. "
-        "<b>MVP implementado:</b> reglas en modelo_simulado.py. "
-        "<b>Despliegue:</b> local (Docker Compose) y cloud (Cloud Run). "
-        "Alcance académico; no uso clínico real.", normal))
+        "<b>MVP:</b> reglas en modelo_simulado.py.", normal))
 
-    story.append(_p("<b>Resumen del problema</b>", sub))
+    story.append(_p("<b>Diagrama principal — Pipeline ML</b>", sub))
+    story.append(Image(str(DIAG_HERO), width=16.5 * cm, height=11 * cm))
+
+    story.append(_p("<b>Case Challenge (resumen)</b>", sub))
     story.append(_p(
-        "Un médico ingresa al menos tres signos (presión, colesterol, glucosa, etc.) y "
-        "obtiene una de cuatro etiquetas. El pipeline MLOps garantiza datos versionados, "
-        "entrenamiento trazable, empaquetado reproducible, inferencia local o remota, "
-        "monitoreo y reentrenamiento continuo.", normal))
+        "<b>Entrenamiento offline:</b> ML engineer entrena LightGBM sobre CSV versionado (~70k filas), "
+        "evalúa vs baseline de reglas y promueve en MLflow Registry. "
+        "<b>Tarea de predicción:</b> médico envía ≥3 signos y recibe una de cuatro etiquetas en "
+        "&lt;100 ms, en PC local (Docker) o vía API cloud (HTTPS).", normal))
 
+    story.append(PageBreak())
     story.append(_p("<b>Registro de suposiciones (extracto)</b>", sub))
     for s in [
         "S1: CSV ~70k filas representa dominio académico.",
@@ -294,18 +367,20 @@ def construir_pdf() -> Path:
         "código actual. Ver CHANGELOG.md para cambios vs Semana 1.", normal))
 
     story.append(Spacer(1, 0.3 * cm))
-    story.append(_p("<i>Documento académico v2.0 — no constituye asesoría clínica.</i>", styles["Italic"]))
+    story.append(_p("<i>Documento académico v2.1 — no constituye asesoría clínica.</i>", styles["Italic"]))
 
     doc.build(story)
     return PDF_OUT
 
 
 def main() -> None:
+    dibujar_pipeline_principal()
     dibujar_pipeline_e2e()
     dibujar_despliegue_hibrido()
     dibujar_cicd()
     dibujar_datos_ml()
     construir_pdf()
+    print(f"Hero: {DIAG_HERO}")
     print(f"Diagramas: {DIAG_E2E}, {DIAG_DEPLOY}, {DIAG_CICD}, {DIAG_DATOS}")
     print(f"Legacy alias: {DIAG_LEGACY}")
     print(f"PDF: {PDF_OUT}")

@@ -10,11 +10,35 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/).
 |---------|--------|-------------------|
 | **1.0.0** | Semana 1 | `f570021` — [`punto 1 descripcion pipeline MLops.pdf`](punto%201%20descripcion%20pipeline%20MLops.pdf) |
 | **1.1.0** | Unidad 3 (intermedia) | `c2d57d0` — [`PROPUESTA_PIPELINE_MLOPS.md`](PROPUESTA_PIPELINE_MLOPS.md) v1, 8 etapas ampliadas |
-| **2.0.0** | Unidad 3 (reestructuración E2E) | Esta entrega — 12 etapas, ML producción, despliegue híbrido |
+| **2.0.0** | Unidad 3 (reestructuración E2E) | `43777e4` — 12 etapas, ML producción, despliegue híbrido |
+| **2.1.0** | Unidad 3 (estructura mlops-sample) | **Actual** — Case Challenge + Offline Training \| Predictions |
 
 ---
 
-## [2.0.0] — Reestructuración end-to-end (actual)
+## [2.1.0] — Alineación con mlops-sample (actual)
+
+### Added
+
+- **Diagrama principal** estilo [avila196/mlops-sample](https://github.com/avila196/mlops-sample): [`imgs/ml-pipeline-estado-clinico.png`](imgs/ml-pipeline-estado-clinico.png) con bloques **Offline Training | Predictions | Bonus**.
+- Carpeta **`docs/imgs/`** para figuras (equivalente a `imgs/` del sample).
+- Secciones narrativas **Case Challenge**, **Part 1** (Offline Training + Predictions), **Part 2** (MVP implementado), **Part 3** (requisitos futuros).
+- Subsecciones espejo del sample: Data Input, Model Iterations, Model selection & evaluation, ¿Producción?, Model deployment, Inferencia tiempo real.
+- Referencia explícita al repo ejemplo en propuesta y PDF.
+
+### Changed
+
+- [`PROPUESTA_PIPELINE_MLOPS.md`](PROPUESTA_PIPELINE_MLOPS.md) reorganizado: narrativa Part 1/2/3 + apéndices técnicos (etapas 0–12, suposiciones, huérfanas).
+- PDF v2.1 prioriza diagrama principal mlops-sample en portada.
+- Comparación batch Spark/EMR (sample fintech) → inferencia unitaria médico local/cloud (nuestro dominio).
+
+### Rationale
+
+- El evaluador y equipos ML reconocen la estructura **Offline Training | Predictions** del curso/referencia.
+- Se conserva profundidad técnica v2.0 en apéndices sin perder legibilidad del diagrama central.
+
+---
+
+## [2.0.0] — Reestructuración end-to-end
 
 ### Added
 
@@ -103,9 +127,12 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/).
 
 ## Comparativa rápida
 
-| Tema | v1.0.0 Semana 1 | v1.1.0 Unidad 3 | v2.0.0 Actual |
-|------|-----------------|-----------------|---------------|
-| Etapas | 8 | 8 | 12 |
+| Tema | v1.0.0 | v2.0.0 | v2.1.0 Actual |
+|------|--------|--------|---------------|
+| Estructura doc | PDF 8 etapas | 12 etapas lineales | Case Challenge + Part 1/2/3 |
+| Diagrama central | Simple | 12 cajas horizontales | Offline Training \| Predictions |
+| Referencia sample | No | No | Sí (mlops-sample) |
+| Etapas | 8 | 12 | 12 (apéndice) + Part 1 narrativo |
 | Argumentos por etapa | Escasos | Medios | Completos (plantilla 8 puntos) |
 | Suposiciones | Implícitas | Parciales | Registro S1–S8 |
 | Modelo producción | Reglas | Reglas + ML futuro | LightGBM (+ reglas MVP) |

@@ -72,11 +72,10 @@ La **propuesta de producción** (documentada, no implementada aquí) define un m
 
 | Documento | Enlace |
 |-----------|--------|
-| Propuesta v2.0 (12 etapas) | [`docs/PROPUESTA_PIPELINE_MLOPS.md`](../docs/PROPUESTA_PIPELINE_MLOPS.md) |
+| Propuesta v2.1 (estructura mlops-sample) | [`docs/PROPUESTA_PIPELINE_MLOPS.md`](../docs/PROPUESTA_PIPELINE_MLOPS.md) |
 | PDF entrega | [`docs/Pipeline_MLOps_Propuesta_Completa.pdf`](../docs/Pipeline_MLOps_Propuesta_Completa.pdf) |
-| CHANGELOG vs Semana 1 | [`docs/CHANGELOG.md`](../docs/CHANGELOG.md) |
-| Diagrama E2E | [`docs/diagrama_pipeline_e2e.png`](../docs/diagrama_pipeline_e2e.png) |
-| Despliegue híbrido | [`docs/diagrama_despliegue_hibrido.png`](../docs/diagrama_despliegue_hibrido.png) |
+| CHANGELOG | [`docs/CHANGELOG.md`](../docs/CHANGELOG.md) |
+| **Diagrama principal** Offline \| Predictions | [`docs/imgs/ml-pipeline-estado-clinico.png`](../docs/imgs/ml-pipeline-estado-clinico.png) |
 
 **Resumen:** este servicio cumple la consigna académica con reglas interpretables. El equipo ML promovería LightGBM a producción solo si supera este baseline en F1 macro y recall de la clase AGUDA (~1,9 % del dataset).
 
