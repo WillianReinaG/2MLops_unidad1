@@ -1,204 +1,166 @@
-# Propuesta de pipeline MLOps — Estado clínico simulado v2.1
+# Propuesta de pipeline MLOps — Estado clínico simulado
 
-**Proyecto:** 2MLops (Unidad 3) · **Rama:** `unidad3`  
-**Referencia de estructura:** [avila196/mlops-sample](https://github.com/avila196/mlops-sample) (Offline Training | Predictions)  
-**Alcance:** documentación ejecutable por un equipo ML; trabajo académico.
-
----
-
-## Case Challenge
-
-### Background
-
-En un entorno clínico **simulado**, un servicio debe ayudar a clasificar el estado orientativo de un paciente en **cuatro categorías** a partir de signos medibles (presión arterial, colesterol, glucosa, hábitos). El objetivo del ejercicio MLOps es diseñar un pipeline que permita a un equipo de ML **entrenar, versionar, desplegar, monitorizar y reentrenar** un modelo de forma reproducible, mientras el médico puede usar la solución **en su PC local** o **mediante peticiones a un servicio en la nube**.
-
-Los datos de referencia (~70 000 registros tabulares) están en `data/`; el **MVP ya implementado** expone reglas deterministas vía Flask/Docker (`servicio_estado_clinico/`).
-
-### Problem definition
-
-#### Model training
-
-El modelo se entrena **offline** por un ML engineer (o de forma automatizada vía CI).
-
-- **Dataset:** CSV en `data/raw/` y versiones procesadas en `data/processed/` (incluye columna `categoria_clinica` generada por `scripts/ajustar_cuatro_categorias.py`).
-- **Procesamiento:** limpieza, validación de calidad, feature engineering y etiquetado en cuatro clases.
-- **Selección y evaluación** son etapas separadas para comparar modelos con métricas comparables (F1 macro, recall por clase, especialmente **AGUDA ~1,9 %**).
-- **Producción objetivo:** **LightGBM** + Pipeline sklearn, registrado en **MLflow Model Registry**.
-- **Baseline MVP:** reglas en `modelo_simulado.py` — no se promueve ML sin superar este baseline en test.
-
-#### Prediction task
-
-El **médico** introduce **al menos tres valores** y recibe **exactamente una** etiqueta:
-
-`NO ENFERMO` · `ENFERMEDAD LEVE` · `ENFERMEDAD AGUDA` · `ENFERMEDAD CRÓNICA`
-
-| Modo | Tecnología | Acceso |
-|------|------------|--------|
-| **Local** | Docker Compose + contenedor API | `http://localhost:5000/predecir` |
-| **Remoto** | Cloud Run / App Runner + TLS | `https://.../predecir` + API key |
-
-**Requisito de latencia:** inferencia CPU **<100 ms** tras warm-up; modelo tabular **<10 MB** (sin GPU).
+**Versión:** 3.0 · **Rama:** `unidad3`  
+**Nivel:** propuesta ejecutable (posgrado / operación ML profesional)  
+**Alcance:** documentación; MVP de inferencia implementado; stack completo planificado.
 
 ---
 
-## Part 1: Machine Learning Pipeline Design
+## Resumen ejecutivo
 
-Según los requisitos del problema, se propone el siguiente diagrama (estructura **Offline Training | Predictions**, al estilo mlops-sample):
+Se propone un **sistema sociotécnico** de clasificación orientativa en cuatro estados clínicos simulados, gobernado por principios de **MLOps**, **DevOps**, **DevSecOps**, **AIOps** y horizonte **AgentOps**, con despliegue **edge (local)** y **cloud**.
+
+| Capa | Rol en este proyecto |
+|------|----------------------|
+| **MLOps** | Datos versionados, entrenamiento trazable, registry, evaluación, retrain |
+| **DevOps** | CI/CD GitHub Actions, contenedores inmutables, IaC ligero |
+| **DevSecOps** | SBOM, escaneo de imagen, secretos, TLS, mínima PII |
+| **AIOps** | Alertas sobre métricas/drift, runbooks automatizados, rollback asistido |
+| **AgentOps** | *Futuro:* agente de soporte al médico (explicación SHAP, triage documental), sin autonomía clínica |
+
+**Implementado hoy:** baseline de reglas + Flask + Docker (`servicio_estado_clinico/`).  
+**Objetivo de producción:** LightGBM en MLflow, misma API, despliegue híbrido.
+
+Documentos complementarios: [`MODEL_CARD.md`](MODEL_CARD.md), [`ADR/`](ADR/), [`CHANGELOG.md`](CHANGELOG.md).
+
+---
+
+## 1. Marco de referencia y madurez
+
+### 1.1 Alineación CD4ML / Google MLOps
+
+| Nivel | Capacidad | Estado propuesta |
+|-------|-----------|------------------|
+| L0 | Manual, scripts ad hoc | Semana 1 (superado) |
+| L1 | Pipeline reproducible | MVP Docker + reglas |
+| L2 | CI/CD automatizado | GitHub Actions (planificado) |
+| L3 | Deploy automatizado + monitoreo | Cloud Run + Prometheus/Evidently |
+| L4 | Retrain continuo con gates | Workflows programados + MLflow |
+
+### 1.2 Diagrama principal del pipeline
+
+Estructura **Offline Training | Predictions** ([referencia mlops-sample](https://github.com/avila196/mlops-sample)):
 
 ![Pipeline ML](./imgs/ml-pipeline-estado-clinico.png)
 
-Las secciones siguientes detallan cada bloque del diagrama. La numeración **0–12** (apéndice al final) desglosa las mismas etapas para auditoría técnica.
+### 1.3 Diagrama de capas operativas (Ops stack)
 
-> **Nota:** Python se asume en todas las etapas que requieran código, salvo que se indique otra tecnología.
+![Ops stack](./imgs/arquitectura-ops-capas.png)
+
+---
+
+## 2. Case Challenge
+
+### 2.1 Background
+
+Servicio de **triaje simulado**: el médico ingresa ≥3 signos (presión, colesterol, glucosa, hábitos, antecedentes) y obtiene una de cuatro etiquetas. El reto es operacionalizar el ciclo de vida ML con trazabilidad, no solo acertar una predicción puntual.
+
+**Datos:** ~70 000 filas en `data/` · **MVP:** `modelo_simulado.py`.
+
+### 2.2 Problem definition
+
+#### Entrenamiento offline (ML engineer)
+
+Pipeline batch: ingesta → validación → features → LightGBM + Optuna → evaluación SHAP → MLflow Registry. Baseline de reglas como **champion** hasta que ML supere métricas en hold-out ([ADR-001](ADR/001-baseline-reglas-vs-lightgbm.md)).
+
+#### Inferencia online (médico)
+
+| Modo | Stack | SLO latencia p95 |
+|------|-------|------------------|
+| Edge | Docker Compose, `localhost:5000` | <100 ms |
+| Cloud | Cloud Run + API key + TLS | <300 ms (incl. red) |
+
+Contrato único: `POST /predecir` (JSON documentado en README del servicio).
 
 ---
 
-### Offline Training
+## 3. Part 1 — Diseño del pipeline ML
 
-El entrenamiento offline comienza en **GitHub + GitHub Actions**: versionado de código, tests, quality gates de datos y pipelines de entrenamiento/despliegue. Es el punto de partida de cualquier iteración del modelo, igual que en [mlops-sample](https://github.com/avila196/mlops-sample).
+> Python en todas las etapas salvo indicación contraria. Cada bloque incluye **suposiciones**, **tecnología elegida**, **alternativa descartada** y **artefacto**.
+
+### 3.1 Punto de partida: GitHub + GitHub Actions
+
+**Por qué:** single source of truth para código, pipelines, tests y políticas de rama (`main` protegida, PR obligatorio para prod).
+
+**DevOps:** workflows `lint-test`, `data-quality`, `train`, `build-push`, `deploy-staging`, `deploy-prod` ([diagrama CI/CD](diagrama_cicd_mlops.png)).
 
 ---
+
+### 3.2 Offline Training
 
 #### Data Input
 
-**Objetivo:** ingerir y versionar datos con trazabilidad reproducible.
-
-| Aspecto | Detalle |
-|---------|---------|
-| **Suposiciones** | Volumen ~70k filas cabe en DVC + object storage; no hay millones de archivos como en fintech. **Si falla:** solo Git + CSV en repo. |
-| **Tecnologías** | **Git** (metadatos), **DVC** (blobs), **MinIO** local / **S3** cloud. **Descartado:** Redshift (overkill). |
-| **Proceso** | `dvc add data/` → remote → tag `data@vN`. Great Expectations en CI antes de train. |
-| **Artefacto** | Snapshot `data@vN` con hash. |
-| **Repo hoy** | CSV en `data/raw/`, `data/processed/` — **DVC propuesto**. |
-
-**Suposiciones explícitas:**
-
-- Los CSV son representativos del dominio académico, no de una población clínica real (S1).
-- Columnas y rangos documentados en catálogo (etapa 2 del apéndice).
-
----
+| | |
+|-|-|
+| **Suposiciones** | Volumen CSV ~50 MB; sin streaming masivo (≠ fintech batch del sample) |
+| **Stack** | Git + **DVC** + MinIO/S3 |
+| **Descartado** | Data lake enterprise (Delta/Iceberg) — costo/complejidad |
+| **Artefacto** | `data@vN` con hash en tags MLflow |
+| **Repo** | `data/raw/`, `data/processed/` ✓ |
 
 #### Model Iterations
 
-**Objetivo:** explorar datos, definir features y entrenar candidatos con experimentos trazables.
+| | |
+|-|-|
+| **Stack** | pandas, Jupyter (EDA), sklearn Pipeline, **Feast** offline, **LightGBM**, **Optuna**, **MLflow Tracking** |
+| **Descartado** | Redes neuronales — sin ganancia esperada en tabular pequeño |
+| **Política desbalance** | Estratificación; `class_weight`; prioridad AGUDA en evaluación |
 
-| Aspecto | Detalle |
-|---------|---------|
-| **Suposiciones** | Seis features tabulares bastan; LightGBM en CPU es suficiente. |
-| **Tecnologías** | **pandas**, **Jupyter** (EDA), **sklearn Pipeline** + **Feast** (offline), **LightGBM**, **Optuna**, **MLflow Tracking**. **Descartado:** deep learning (sin GPU/necesidad). |
-| **Proceso** | EDA → features → split 70/15/15 estratificado → Optuna → log runs. |
-| **Artefacto** | Runs MLflow con params, metrics, `.pkl`. |
-| **Repo hoy** | Etiquetado con reglas en script — **ML iterativo propuesto**. |
+#### Model Selection & Evaluation
 
-**Enfermedades huérfanas / desbalance:** clase AGUDA minoritaria; usar `class_weight`, estratificación y prioridad de reglas en baseline.
+Métricas: **F1 macro**, **recall AGUDA**, matriz de confusión, **k-fold** estratificado, **SHAP** TreeExplainer. Gate humano documentado en MLflow antes de Staging.
 
----
+#### Gate de producción
 
-#### Model selection & evaluation
-
-**Objetivo:** comparar modelos y aprobar candidato con evidencia.
-
-| Aspecto | Detalle |
-|---------|---------|
-| **Suposiciones** | F1 macro + recall AGUDA son más importantes que accuracy global. |
-| **Tecnologías** | **MLflow** (comparación), **SHAP** (explicabilidad), **k-fold** estratificado. **Descartado:** solo accuracy. |
-| **Proceso** | Matriz confusión, SHAP summary, comparación vs **baseline reglas** en mismo test. |
-| **Gate humano** | Aprobador registra decisión en MLflow antes de promover. |
-| **Criterio** | F1 macro **y** recall AGUDA ≥ baseline reglas. |
-
----
-
-#### ¿Es momento de pasar a producción?
-
-El modelo candidato debe cumplir criterios mínimos de calidad, latencia (<100 ms) y tamaño (<10 MB). Si **sí** → se entrega al engineer de despliegue vía **MLflow Registry** (Staging → Production). Si **no** → vuelta a Model Iterations.
-
-| Gate | Umbral |
-|------|--------|
+| Criterio | Umbral |
+|----------|--------|
 | F1 macro test | ≥ baseline reglas |
 | Recall AGUDA test | ≥ baseline reglas |
-| Inferencia CPU | p95 <100 ms en contenedor |
-| Explicabilidad | Informe SHAP archivado |
+| Latencia inferencia | p95 <100 ms CPU |
+| Model Card | Publicado [`MODEL_CARD.md`](MODEL_CARD.md) |
+
+Si falla → iteración. Si pasa → MLflow Production ([ADR-001](ADR/001-baseline-reglas-vs-lightgbm.md)).
 
 ---
 
-### Predictions (Serving)
+### 3.3 Predictions (Serving)
 
-El modelo (o el MVP baseline) se empaqueta y expone para inferencia en tiempo casi real.
+#### Model Deployment
 
----
+Docker multi-stage → **GHCR**; modelo serializado en imagen o volumen init desde MLflow. **DevSecOps:** Trivy en CI, usuario non-root, SBOM (Syft).
 
-#### Model deployment
+#### Inferencia híbrida
 
-| Aspecto | Detalle |
-|---------|---------|
-| **Suposiciones** | Un contenedor sirve el modelo serializado (joblib/pickle dentro de Pipeline sklearn). |
-| **Tecnologías** | **Docker** multi-stage, **GHCR**, serialización joblib. **Descartado:** EMR+Spark (mlops-sample usa Spark para millones de archivos batch; aquí inferencia unitaria por médico). |
-| **Proceso** | Export Production desde MLflow → build imagen → push GHCR. |
-| **Contrato API** | `POST /predecir` — JSON igual al MVP actual. |
+[ADR-002](ADR/002-despliegue-hibrido-edge-cloud.md) · [diagrama despliegue](diagrama_despliegue_hibrido.png).
+
+**Adaptación vs mlops-sample:** el sample usa EMR+Spark para millones de archivos/día; aquí **inferencia unitaria síncrona** (<1 s) — arquitectura edge/cloud, no cluster batch.
 
 ---
 
-#### Inferencia en tiempo real (local + cloud)
+### 3.4 Bonus — Monitoreo, AIOps y retrain
 
-A diferencia del caso fintech del sample (batch diario masivo), aquí la predicción es **por consulta del médico** (<1 s), alineado con la **Part 3** del sample (real-time):
+[ADR-003](ADR/003-observabilidad-aiops.md)
 
-| Vía | Stack | Usuario |
-|-----|-------|---------|
-| **Local** | Docker Compose, `localhost:5000` | Médico sin dependencia de internet |
-| **Cloud** | Cloud Run / App Runner, HTTPS, API key | Médico remoto o dispositivo sin Docker |
+| Componente | Función |
+|------------|---------|
+| Prometheus + Grafana | SLI operativos (latencia, errores, RPS) |
+| Evidently | Drift tabular; alerta si % AGUDA ∉ [1%,3%] |
+| GitHub Actions | Retrain programado; rollback automático de imagen en staging |
+| Runbooks | Playbook documentado: degradación → rollback registry → redeploy |
 
-**Suposiciones:** misma imagen en ambos modos; TLS en cloud; no persistir PII en logs (S5).
-
-**Repo hoy:** Flask + `docker run -p 5000:5000` — **Compose y Cloud propuestos**.
-
----
-
-### Bonus #1 — Model Monitoring
-
-Aunque no sea obligatorio en la consigna mínima, el monitoreo es crítico en MLOps maduro (como indica mlops-sample):
-
-- **Prometheus + Grafana:** latencia, errores 4xx/5xx, peticiones/min.
-- **Evidently AI:** data drift en presión, glucosa, colesterol; alerta si frecuencia AGUDA ∉ [1%, 3%].
-- **Logs JSON** sin valores identificables.
+**Triggers retrain:** ≥5k filas DVC · drift score · F1 online −10% · trimestral + aprobación.
 
 ---
 
-### Bonus #2 — Retraining y mejora continua
+## 4. Part 2 — Componente implementado (MVP)
 
-Triggers de reentrenamiento (GitHub Actions scheduled o Prefect):
+Equivalente al “model container” simplificado del sample ([Part 2 mlops-sample](https://github.com/avila196/mlops-sample)):
 
-1. ≥5 000 registros nuevos en DVC.
-2. Drift Evidently > umbral.
-3. Caída F1 online >10 %.
-4. Calendario trimestral + aprobación manual.
-
-Rollback: MLflow Registry → redeploy imagen anterior en GHCR/Cloud Run.
-
----
-
-## Part 2: Implementación de un componente del pipeline (MVP)
-
-Del pipeline completo, se eligió implementar el componente de **inferencia en tiempo real simplificado**, equivalente al “model container” del sample:
-
-**Suposiciones y simplificaciones** (como en mlops-sample Part 2):
-
-| Simplificación | Justificación |
-|----------------|---------------|
-| Reglas deterministas en lugar de LightGBM entrenado | Consigna académica Unidad 1; baseline auditable |
-| Flask sin Swagger | Formulario web + JSON suficiente para evaluación |
-| Docker single-container | Sin Airflow/Compose en MVP (propuesto en Part 1 para prod) |
-| Sin MLflow en runtime | Registry documentado como objetivo prod |
-
-**Qué está en el repo:**
-
-| Archivo | Rol |
-|---------|-----|
-| `servicio_estado_clinico/modelo_simulado.py` | Lógica baseline 4 categorías |
-| `servicio_estado_clinico/app.py` | Flask `POST /predecir` |
-| `servicio_estado_clinico/Dockerfile` | Imagen reproducible |
-| `scripts/ajustar_cuatro_categorias.py` | Etiquetado offline alineado a reglas |
-
-**Cómo ejecutar el MVP:**
+| Simplificación | Razón |
+|----------------|-------|
+| Reglas vs LightGBM | Consigna Unidad 1 + baseline interpretable |
+| Flask sin OpenAPI completo | Suficiente para evaluación; prod → FastAPI |
+| Contenedor único | Sin Airflow en MVP |
 
 ```powershell
 cd servicio_estado_clinico
@@ -206,97 +168,137 @@ docker build -t estado-clinico-demo .
 docker run --rm -p 5000:5000 estado-clinico-demo
 ```
 
-Abrir `http://localhost:5000/` o `POST http://localhost:5000/predecir`.
+---
+
+## 5. Part 3 — Escenarios futuros
+
+### 5.1 Tiempo real (<1 s)
+
+Contenedor + FastAPI/OpenAPI; Cloud Run min-instances=0 o 1 según SLA.
+
+### 5.2 Retrain con feedback clínico simulado
+
+Retro-scoring CSV histórico; dashboard Grafana/Streamlit; endpoint `/retrain` solo staging.
+
+### 5.3 Multi-versión y canary
+
+Traffic split Cloud Run; tags `:vN` en GHCR; comparación A/B en MLflow.
+
+### 5.4 AgentOps (horizonte)
+
+**Definición:** orquestación de agentes LLM/tool-calling para **asistencia**, no decisión clínica autónoma.
+
+| Agente (propuesto) | Herramientas | Límite |
+|--------------------|--------------|--------|
+| `ExplainerAgent` | SHAP values, Model Card | Solo explica predicción |
+| `OpsAgent` | Consulta Grafana, abre runbook | No despliega a prod sin humano |
+| `IntakeAgent` | Valida JSON vs schema | Rechaza entradas inválidas |
+
+Stack futuro: LangGraph / OpenAI Agents SDK + guardrails + audit log. **Fuera de alcance MVP**; documentado para madurez L4+.
 
 ---
 
-## Part 3: Diseño ante requisitos futuros del pipeline
+## 6. Gobernanza, seguridad y cumplimiento
 
-*(Adaptado de mlops-sample Part 3 al dominio clínico simulado.)*
+### 6.1 RACI (extracto)
 
-### Predicciones en tiempo real (<1 s)
+| Actividad | ML Eng | MLOps | Médico (usuario) | Aprobador |
+|-----------|--------|-------|------------------|-----------|
+| Entrenamiento | R | C | I | I |
+| Promoción prod | C | R | I | A |
+| Despliegue | I | R | I | C |
+| Monitoreo drift | C | R | I | I |
 
-Ya cubierto: contenedor Docker + Flask/FastAPI. Evolución: **FastAPI** + OpenAPI; hosting en **Cloud Run** o ECS.
+*R=Responsible, A=Accountable, C=Consulted, I=Informed*
 
-### Reentrenamiento periódico con feedback
+### 6.2 DevSecOps
 
-- CI/CD existente (GitHub Actions) reentrena y despliega tras gate.
-- Retro-scoring del CSV histórico con nuevo modelo para comparar vs baseline.
-- Dashboard Streamlit/Grafana para stakeholders académicos.
-- Endpoint opcional `/retrain` solo en staging (nunca prod sin gate).
+- Secretos: GitHub Secrets / GCP Secret Manager (nunca en repo).
+- TLS obligatorio en cloud; API key rotación semestral.
+- Logs JSON sin PII; retención 30 días (académico).
+- Escaneo CVE en CI; firma de imagen (cosign) en evolución.
 
-### Múltiples versiones de modelo self-served
+### 6.3 Registro de suposiciones (S1–S10)
 
-- MLflow Registry mantiene N versiones; Cloud Run traffic split o tags de imagen (`:v1`, `:v2`).
-- GitHub Actions promueve versión aprobada; rollback documentado en CHANGELOG operativo.
+| ID | Suposición | Si falla | Validación |
+|----|------------|----------|------------|
+| S1 | CSV representa dominio académico | Sesgo | EDA + Evidently |
+| S2 | 4 categorías suficientes | Subdiagnóstico | Alcance + humano |
+| S3 | Inferencia <100 ms local | UX pobre | Benchmark |
+| S4 | Edge o cloud disponible | Sin servicio | Fallback documentado |
+| S5 | Sin PII en logs | Privacidad | Redacción logs |
+| S6 | AGUDA ~1,9% | Sesgo mayoría | Recall gate |
+| S7 | Reglas ≡ script CSV | Skew | Tests paridad |
+| S8 | Free tier cloud OK | Solo edge | FinOps review |
+| S9 | Sin autonomía AgentOps clínica | Riesgo ético | Guardrails + HITL |
+| S10 | Equipo 2–3 FTE part-time | Retraso | Roadmap por fases |
 
 ---
 
-## Apéndice A — Registro maestro de suposiciones (S1–S8)
+## 7. SLI, SLO y error budget
 
-| ID | Suposición | Implicación si falla | Validación |
-|----|------------|----------------------|------------|
-| S1 | CSV ~70k filas, dominio académico | Sesgo | EDA + Evidently |
-| S2 | Cuatro categorías suficientes | Diagnósticos finos no cubiertos | Alcance + revisión humana |
-| S3 | Inferencia <100 ms, modelo <10 MB | UX degradada en local | Benchmark contenedor |
-| S4 | Docker local **o** HTTPS cloud | Médico no puede usar servicio | Modo alternativo documentado |
-| S5 | Sin PII en logs | Privacidad | Logs JSON redactados |
-| S6 | AGUDA ~1,9 % | Ignorar minoría | Estratificación + recall gate |
-| S7 | Reglas alineadas a CSV | Desalineación | Tests paridad |
-| S8 | Free tier cloud aceptable | Solo local | Fallback documentado |
+| SLI | SLO (prod) | Medición |
+|-----|------------|----------|
+| Disponibilidad API | 99,5% mensual (académico) | Prometheus uptime |
+| Latencia p95 | <100 ms edge; <300 ms cloud | Histogram |
+| Tasa error 5xx | <0,5% | Counter |
+| Recall AGUDA (offline eval) | ≥ baseline | MLflow test run |
+| Drift score Evidently | < umbral τ | Reporte semanal |
+
+**Error budget agotado** → congelar deploys; priorizar rollback o hotfix.
 
 ---
 
-## Apéndice B — Detalle técnico por etapa (0–12)
+## 8. Enfermedades huérfanas y clases minoritarias
 
-Cada etapa sigue: **Objetivo · Suposiciones · I/O · Tecnologías · Proceso · Criterios · Riesgos · Repo**.
+**Desbalance:** AGUDA ~1,9% — estratificación, pesos, recall como gate, monitoreo de tasa en prod.
 
-| # | Etapa | Tecnología clave | Repo |
-|---|--------|------------------|------|
-| 0 | Encuadre | Markdown, RACI | README, docs |
-| 1 | Ingesta | Git, DVC, S3/MinIO | `data/` ✓ |
-| 2 | Catálogo | DVC linaje, OpenMetadata opt. | propuesto |
-| 3 | Calidad | Great Expectations, Pandera | propuesto |
-| 4 | Features | pandas, sklearn, Feast | propuesto |
-| 5 | Train | LightGBM, Optuna, MLflow | propuesto |
-| 6 | Eval | SHAP, k-fold, gate | propuesto |
-| 7 | Registry | MLflow Staging→Prod | propuesto |
+**Huérfanas clínicas (no en CSV):** no inferir por nombre; respuesta conservadora + `requiere_revision_humana`; cuarentena `raw/quarantine/`.
+
+---
+
+## 9. Roadmap de implementación
+
+| Fase | Sem | Entregable | Ops |
+|------|-----|------------|-----|
+| 0 | 1 | MVP Flask/Docker | ✓ |
+| 1 | 2 | DVC, GX, catálogo | DevOps |
+| 2 | 2 | LightGBM + MLflow + SHAP | MLOps |
+| 3 | 1 | GHCR, Compose, Cloud Run | DevOps |
+| 4 | 1 | Grafana, Evidently, AIOps runbooks | AIOps |
+| 5 | 2 | AgentOps sandbox (opcional) | AgentOps |
+
+---
+
+## 10. Apéndice — Mapa técnico 0–12
+
+| # | Etapa | Stack | Repo |
+|---|--------|-------|------|
+| 0 | Encuadre | RACI, Model Card | docs ✓ |
+| 1 | Ingesta | DVC, S3 | data ✓ |
+| 2 | Catálogo | DVC linaje | plan |
+| 3 | Calidad | Great Expectations | plan |
+| 4 | Features | Feast, sklearn | plan |
+| 5 | Train | LightGBM, Optuna, MLflow | plan |
+| 6 | Eval | SHAP, gates | plan |
+| 7 | Registry | MLflow Prod | plan |
 | 8 | Package | Docker, GHCR | Dockerfile ✓ |
-| 9 | Deploy local | Docker Compose | `docker run` ✓ |
-| 10 | Deploy cloud | Cloud Run, API key | propuesto |
-| 11 | Monitor | Prometheus, Grafana, Evidently | propuesto |
-| 12 | Retrain | GitHub Actions, Prefect | propuesto |
+| 9 | Edge | Compose | parcial ✓ |
+| 10 | Cloud | Cloud Run | plan |
+| 11 | Observe | Prom, Grafana, Evidently | plan |
+| 12 | Retrain | GHA, Prefect | plan |
 
-Diagramas complementarios: [`diagrama_pipeline_e2e.png`](diagrama_pipeline_e2e.png), [`diagrama_despliegue_hibrido.png`](diagrama_despliegue_hibrido.png), [`diagrama_cicd_mlops.png`](diagrama_cicd_mlops.png), [`diagrama_datos_ml.png`](diagrama_datos_ml.png).
-
----
-
-## Apéndice C — Enfermedades huérfanas
-
-**Desbalance (AGUDA ~1,9 %):** estratificación, `class_weight`, recall como gate, monitoreo de frecuencia en prod.
-
-**Patologías raras no en CSV:** no se diagnostican por nombre; flag `requiere_revision_humana`; cuarentena `raw/quarantine/`.
-
----
-
-## Apéndice D — Plan de puesta en marcha
-
-| Fase | Semanas | Entregable |
-|------|---------|------------|
-| 0 Baseline | 1 | MVP Flask/Docker (**hecho**) |
-| 1 Datos | 1–2 | DVC, GX, catálogo |
-| 2 ML | 2 | LightGBM + MLflow + SHAP |
-| 3 Deploy | 1 | GHCR, Compose, Cloud Run |
-| 4 Ops | 1 | Grafana, Evidently, retrain CI |
+Diagramas: [E2E](diagrama_pipeline_e2e.png) · [datos→ML](diagrama_datos_ml.png) · [CI/CD](diagrama_cicd_mlops.png)
 
 ---
 
 ## Referencias
 
-- Repo ejemplo estructura: [github.com/avila196/mlops-sample](https://github.com/avila196/mlops-sample)
-- Cambios vs Semana 1: [`CHANGELOG.md`](CHANGELOG.md)
-- Regenerar PDF: `python docs/generar_pdf_pipeline_mlops.py`
+- [avila196/mlops-sample](https://github.com/avila196/mlops-sample) — estructura Offline \| Predictions  
+- Model Cards (Mitchell et al., 2019)  
+- Google MLOps maturity levels  
+- [`CHANGELOG.md`](CHANGELOG.md)
 
 ---
 
-*Documento académico v2.1 — no constituye asesoría clínica.*
+*Documento v3.0 — simulación académica; no asesoría clínica.*

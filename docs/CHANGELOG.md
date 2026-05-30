@@ -11,11 +11,43 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/).
 | **1.0.0** | Semana 1 | `f570021` — [`punto 1 descripcion pipeline MLops.pdf`](punto%201%20descripcion%20pipeline%20MLops.pdf) |
 | **1.1.0** | Unidad 3 (intermedia) | `c2d57d0` — [`PROPUESTA_PIPELINE_MLOPS.md`](PROPUESTA_PIPELINE_MLOPS.md) v1, 8 etapas ampliadas |
 | **2.0.0** | Unidad 3 (reestructuración E2E) | `43777e4` — 12 etapas, ML producción, despliegue híbrido |
-| **2.1.0** | Unidad 3 (estructura mlops-sample) | **Actual** — Case Challenge + Offline Training \| Predictions |
+| **2.1.0** | Unidad 3 (estructura mlops-sample) | `b24ea2a` — Case Challenge + Offline Training \| Predictions |
+| **3.0.0** | Unidad 3 (nivel posgrado) | **Actual** — Ops stack, ADR, Model Card, SLI/SLO, AIOps, AgentOps |
 
 ---
 
-## [2.1.0] — Alineación con mlops-sample (actual)
+## [3.0.0] — Nivel posgrado / operación profesional (actual)
+
+### Added
+
+- **Ops stack** documentado: MLOps + DevOps + DevSecOps + AIOps + horizonte AgentOps.
+- Diagrama [`imgs/arquitectura-ops-capas.png`](imgs/arquitectura-ops-capas.png).
+- **ADR/** con tres Architecture Decision Records (baseline vs LightGBM, despliegue híbrido, observabilidad AIOps).
+- [`MODEL_CARD.md`](MODEL_CARD.md) — Model Card con limitaciones éticas y métricas objetivo.
+- **SLI/SLO/error budget** operativos definidos.
+- **RACI** y registro de suposiciones **S1–S10** (incl. AgentOps sin autonomía clínica).
+- Sección **madurez** Google MLOps L0–L4.
+- **DevSecOps:** Trivy, SBOM, cosign (evolución), Secret Manager.
+- **AgentOps (horizonte):** agentes Explainer/Ops/Intake con guardrails HITL.
+
+### Changed
+
+- [`PROPUESTA_PIPELINE_MLOPS.md`](PROPUESTA_PIPELINE_MLOPS.md) v3.0: resumen ejecutivo profesional, gobernanza, consolidación de apéndices redundantes.
+- PDF ampliado con Ops stack, madurez, SLI/SLO, AIOps/AgentOps.
+- Hero diagram v3.0.
+
+### Removed
+
+- Redundancia de tablas duplicadas entre cuerpo y apéndices (consolidado en v3.0).
+- Tono exclusivamente “curso básico”; reemplazado por lenguaje de operación ML sin perder disclaimer académico.
+
+### Rationale
+
+- Elevar la propuesta a estándar **maestría/doctorado profesional** en MLOps y disciplinas *Ops* relacionadas, manteniendo MVP implementado y alcance académico honesto.
+
+---
+
+## [2.1.0] — Alineación con mlops-sample
 
 ### Added
 
@@ -127,17 +159,9 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/).
 
 ## Comparativa rápida
 
-| Tema | v1.0.0 | v2.0.0 | v2.1.0 Actual |
-|------|--------|--------|---------------|
-| Estructura doc | PDF 8 etapas | 12 etapas lineales | Case Challenge + Part 1/2/3 |
-| Diagrama central | Simple | 12 cajas horizontales | Offline Training \| Predictions |
-| Referencia sample | No | No | Sí (mlops-sample) |
-| Etapas | 8 | 12 | 12 (apéndice) + Part 1 narrativo |
-| Argumentos por etapa | Escasos | Medios | Completos (plantilla 8 puntos) |
-| Suposiciones | Implícitas | Parciales | Registro S1–S8 |
-| Modelo producción | Reglas | Reglas + ML futuro | LightGBM (+ reglas MVP) |
-| Despliegue | Local | Local | Local + Cloud |
-| Tecnologías | Genéricas | Listadas | Elegidas + descartadas |
-| Enfermedades huérfanas | No | Sí | Sí + política ML |
-| CI/CD | No | Mencionado | Diagrama + jobs |
-| CHANGELOG | No | No | Sí |
+| Tema | v2.1.0 | v3.0.0 Actual |
+|------|--------|---------------|
+| Ops stack | MLOps implícito | MLOps + DevOps + DevSecOps + AIOps + AgentOps |
+| Gobernanza | Suposiciones S1–S8 | + ADR, Model Card, RACI, SLO |
+| AgentOps | No | Horizonte documentado |
+| PDF | ~5 páginas | ~7 páginas, ops + SLO |

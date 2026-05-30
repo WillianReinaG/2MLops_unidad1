@@ -1,5 +1,5 @@
 """
-Genera diagramas y PDF de la propuesta MLOps v2.0 (Unidad 3 — reestructuración E2E).
+Genera diagramas y PDF de la propuesta MLOps v3.0 (Unidad 3 — nivel posgrado).
 Requisitos: pip install matplotlib reportlab
 """
 
@@ -20,6 +20,7 @@ BASE = Path(__file__).resolve().parent
 IMGS = BASE / "imgs"
 IMGS.mkdir(exist_ok=True)
 DIAG_HERO = IMGS / "ml-pipeline-estado-clinico.png"
+DIAG_OPS = IMGS / "arquitectura-ops-capas.png"
 DIAG_E2E = BASE / "diagrama_pipeline_e2e.png"
 DIAG_DEPLOY = BASE / "diagrama_despliegue_hibrido.png"
 DIAG_CICD = BASE / "diagrama_cicd_mlops.png"
@@ -63,7 +64,7 @@ def dibujar_pipeline_principal() -> Path:
     ax.set_xlim(0, 13)
     ax.set_ylim(0, 9)
     ax.axis("off")
-    ax.text(6.5, 8.65, "Pipeline MLOps — Estado clínico simulado v2.1", ha="center", fontsize=14, weight="bold")
+    ax.text(6.5, 8.65, "Pipeline MLOps — Estado clínico simulado v3.0", ha="center", fontsize=14, weight="bold")
     ax.text(
         6.5, 8.25,
         "Inspirado en estructura Offline Training | Predictions (referencia: avila196/mlops-sample)",
@@ -112,6 +113,34 @@ def dibujar_pipeline_principal() -> Path:
     fig.savefig(DIAG_HERO, bbox_inches="tight", facecolor="white")
     plt.close(fig)
     return DIAG_HERO
+
+
+def dibujar_ops_capas() -> Path:
+    """Capas MLOps, DevOps, DevSecOps, AIOps, AgentOps."""
+    fig, ax = plt.subplots(figsize=(11, 7), dpi=150)
+    ax.set_xlim(0, 11)
+    ax.set_ylim(0, 7)
+    ax.axis("off")
+    ax.text(5.5, 6.65, "Arquitectura operativa — Ops stack", ha="center", fontsize=13, weight="bold")
+
+    capas = [
+        (0.5, 5.5, 10.0, 0.85, "AgentOps (horizonte)\nAgentes explicativos · guardrails · HITL — sin autonomía clínica", "#f5eef8"),
+        (0.5, 4.45, 10.0, 0.85, "AIOps\nEvidently drift · alertas · runbooks GHA · rollback asistido", "#fadbd8"),
+        (0.5, 3.4, 10.0, 0.85, "DevSecOps\nTrivy · SBOM · Secret Manager · TLS · logs sin PII", "#fdebd0"),
+        (0.5, 2.35, 10.0, 0.85, "DevOps\nGitHub Actions · GHCR · Cloud Run · Docker Compose", "#d5f5e3"),
+        (0.5, 1.3, 10.0, 0.85, "MLOps\nDVC · MLflow · LightGBM · SHAP · gates · Model Card", "#d4e6f1"),
+    ]
+    for x, y, w, h, t, c in capas:
+        _caja(ax, x, y, w, h, t, c, fs=8)
+
+    _caja(ax, 2.5, 0.25, 6.0, 0.75, "Servicio POST /predecir  ·  MVP reglas  ·  Prod LightGBM", "#eaeded", fs=8)
+    for y in [1.3, 2.35, 3.4, 4.45, 5.5]:
+        _flecha(ax, 5.5, y, 5.5, 1.0)
+
+    fig.tight_layout()
+    fig.savefig(DIAG_OPS, bbox_inches="tight", facecolor="white")
+    plt.close(fig)
+    return DIAG_OPS
 
 
 def dibujar_pipeline_e2e() -> Path:
@@ -275,99 +304,76 @@ def construir_pdf() -> Path:
                             topMargin=1.7 * cm, bottomMargin=1.7 * cm)
     story = []
 
-    story.append(_p("Propuesta pipeline MLOps end-to-end v2.1", titulo))
+    story.append(_p("Propuesta pipeline MLOps — v3.0 (nivel posgrado)", titulo))
     story.append(_p(
-        "<b>Proyecto:</b> Estado clínico simulado (2MLops). "
-        "Estructura inspirada en avila196/mlops-sample (Offline Training | Predictions). "
-        "<b>Producción objetivo:</b> LightGBM + MLflow. "
-        "<b>MVP:</b> reglas en modelo_simulado.py.", normal))
+        "<b>Sistema sociotécnico</b> para clasificación clínica simulada en cuatro estados. "
+        "Integra MLOps, DevOps, DevSecOps, AIOps y horizonte AgentOps. "
+        "<b>MVP:</b> reglas + Flask + Docker. <b>Producción:</b> LightGBM + MLflow. "
+        "<b>Despliegue:</b> edge local y cloud (Cloud Run).", normal))
 
-    story.append(_p("<b>Diagrama principal — Pipeline ML</b>", sub))
+    story.append(_p("<b>Diagrama 1 — Pipeline ML (Offline | Predictions)</b>", sub))
     story.append(Image(str(DIAG_HERO), width=16.5 * cm, height=11 * cm))
 
-    story.append(_p("<b>Case Challenge (resumen)</b>", sub))
-    story.append(_p(
-        "<b>Entrenamiento offline:</b> ML engineer entrena LightGBM sobre CSV versionado (~70k filas), "
-        "evalúa vs baseline de reglas y promueve en MLflow Registry. "
-        "<b>Tarea de predicción:</b> médico envía ≥3 signos y recibe una de cuatro etiquetas en "
-        "&lt;100 ms, en PC local (Docker) o vía API cloud (HTTPS).", normal))
+    story.append(_p("<b>Diagrama 2 — Ops stack</b>", sub))
+    story.append(Image(str(DIAG_OPS), width=15 * cm, height=9.5 * cm))
 
     story.append(PageBreak())
-    story.append(_p("<b>Registro de suposiciones (extracto)</b>", sub))
-    for s in [
-        "S1: CSV ~70k filas representa dominio académico.",
-        "S3: Inferencia CPU &lt;100 ms; modelo &lt;10 MB.",
-        "S6: Clase AGUDA ~1,9 % — requiere estratificación y recall como gate.",
-        "S8: Médico usa Docker local o HTTPS cloud con API key.",
+    story.append(_p("<b>Madurez y gobernanza</b>", sub))
+    story.append(_p(
+        "Madurez objetivo Google MLOps L3–L4: CI/CD, deploy automatizado, monitoreo, retrain con gates. "
+        "Gobernanza: Model Card, ADR-001/002/003, RACI, registro suposiciones S1–S10.", normal))
+
+    story.append(_p("<b>SLI / SLO (producción académica)</b>", sub))
+    for row in [
+        "Disponibilidad API: 99,5% mensual.",
+        "Latencia p95: &lt;100 ms edge; &lt;300 ms cloud.",
+        "Errores 5xx: &lt;0,5%.",
+        "Recall AGUDA offline: ≥ baseline reglas.",
     ]:
-        story.append(_p(f"• {s}", normal))
+        story.append(_p(f"• {row}", normal))
 
-    story.append(_p("<b>Diagrama 1 — Pipeline 12 etapas</b>", sub))
-    story.append(Image(str(DIAG_E2E), width=17 * cm, height=6.5 * cm))
+    story.append(_p("<b>Offline Training (síntesis)</b>", sub))
+    story.append(_p(
+        "GitHub Actions → DVC/S3 → Great Expectations → Feast/sklearn → LightGBM/Optuna/MLflow → "
+        "SHAP + gate humano → MLflow Registry. Promoción solo si supera baseline en F1 macro y recall AGUDA.", normal))
+
+    story.append(_p("<b>Predictions (síntesis)</b>", sub))
+    story.append(_p(
+        "Docker/GHCR → inferencia edge (Compose) o cloud (Cloud Run, TLS, API key). "
+        "Mismo contrato POST /predecir. Adaptación vs mlops-sample: inferencia unitaria, no batch Spark.", normal))
 
     story.append(PageBreak())
-    story.append(_p("<b>Diagrama 2 — Despliegue híbrido</b>", sub))
+    story.append(_p("<b>Diagrama 3 — Despliegue híbrido</b>", sub))
     story.append(Image(str(DIAG_DEPLOY), width=15 * cm, height=9 * cm))
-    story.append(_p(
-        "El médico puede ejecutar la solución en su PC (Docker Compose, localhost:5000) "
-        "o consumir la misma API vía HTTPS en Cloud Run con API key. Misma imagen GHCR y "
-        "mismo contrato JSON POST /predecir.", normal))
 
-    story.append(_p("<b>Diagrama 3 — CI/CD</b>", sub))
+    story.append(_p("<b>Diagrama 4 — CI/CD DevOps</b>", sub))
     story.append(Image(str(DIAG_CICD), width=16 * cm, height=6.5 * cm))
 
-    story.append(_p("<b>Diagrama 4 — Datos → ML → serve</b>", sub))
+    story.append(_p("<b>Diagrama 5 — Datos → ML → serve</b>", sub))
     story.append(Image(str(DIAG_DATOS), width=15 * cm, height=7.5 * cm))
 
     story.append(PageBreak())
-    story.append(_p("<b>Etapas del pipeline (síntesis)</b>", sub))
-
-    etapas_txt = [
-        ("0 Encuadre", "Alcance, KPIs, disclaimer. Markdown + RACI."),
-        ("1 Ingesta", "Git + DVC + MinIO/S3. Snapshot data@vN."),
-        ("2 Catálogo", "Linaje DVC; OpenMetadata opcional."),
-        ("3 Calidad", "Great Expectations; gate en CI."),
-        ("4 Features", "pandas + sklearn Pipeline + Feast offline."),
-        ("5 Entrenamiento", "LightGBM + Optuna + MLflow Tracking."),
-        ("6 Evaluación", "SHAP + gate humano; beat baseline reglas."),
-        ("7 Registry", "MLflow Staging → Production; rollback."),
-        ("8 Empaquetado", "Docker multi-stage → GHCR."),
-        ("9 Local", "Docker Compose perfil local; sin GPU."),
-        ("10 Cloud", "Cloud Run / App Runner; TLS + API key."),
-        ("11 Monitoreo", "Prometheus, Grafana, Evidently drift."),
-        ("12 Retrain", "GitHub Actions / Prefect; triggers drift/F1/cron."),
-    ]
-    for tit, txt in etapas_txt:
-        story.append(_p(f"<b>{tit}.</b> {txt}", normal))
-
-    story.append(_p("<b>Enfermedades huérfanas y desbalance</b>", sub))
+    story.append(_p("<b>AIOps y AgentOps</b>", sub))
     story.append(_p(
-        "AGUDA es ~1,9 % del dataset: estratificación, class_weight en LightGBM, "
-        "recall AGUDA como criterio de promoción, monitoreo de frecuencia en producción. "
-        "Patologías raras no presentes en CSV: no se diagnostican por nombre; flag "
-        "requiere_revision_humana propuesto; datos nuevos en cuarentena.", normal))
+        "<b>AIOps:</b> Prometheus, Grafana, Evidently; alertas drift; rollback vía GitHub Actions. "
+        "<b>AgentOps (futuro):</b> agentes Explainer/Ops/Intake con guardrails; sin decisión clínica autónoma.", normal))
 
-    story.append(_p("<b>Baseline vs producción</b>", sub))
+    story.append(_p("<b>Enfermedades huérfanas</b>", sub))
     story.append(_p(
-        "MVP (implementado): reglas deterministas + Flask + Docker. "
-        "Producción (objetivo): LightGBM registrado en MLflow. Promoción solo si "
-        "F1 macro y recall AGUDA superan baseline en mismo test split.", normal))
+        "AGUDA ~1,9%: estratificación, class_weight, recall gate. Patologías no en CSV: no inferir; "
+        "requiere_revision_humana; cuarentena de datos nuevos.", normal))
 
-    story.append(PageBreak())
-    story.append(_p("<b>Plan de puesta en marcha (equipo ML)</b>", sub))
+    story.append(_p("<b>MVP implementado</b>", sub))
     story.append(_p(
-        "Fase 0 (1 sem): baseline operativo — hecho. Fase 1 (1–2 sem): DVC + GX + catálogo. "
-        "Fase 2 (2 sem): LightGBM en MLflow + SHAP. Fase 3 (1 sem): GHCR + local + Cloud Run. "
-        "Fase 4 (1 sem): Grafana + Evidently + workflow retrain. Total ~6–7 semanas, 2–3 personas.", normal))
+        "servicio_estado_clinico/: modelo_simulado.py, app.py, Dockerfile. "
+        "docker run -p 5000:5000 estado-clinico-demo.", normal))
 
-    story.append(_p("<b>Viabilidad</b>", sub))
+    story.append(_p("<b>Documentación complementaria</b>", sub))
     story.append(_p(
-        "Stack open source y free tiers. Datos y MVP ya en repo. Cada etapa tiene "
-        "suposiciones, tecnologías justificadas, criterios de aceptación y relación con "
-        "código actual. Ver CHANGELOG.md para cambios vs Semana 1.", normal))
+        "MODEL_CARD.md · ADR/001-003 · CHANGELOG.md · PROPUESTA_PIPELINE_MLOPS.md (texto completo).", normal))
 
     story.append(Spacer(1, 0.3 * cm))
-    story.append(_p("<i>Documento académico v2.1 — no constituye asesoría clínica.</i>", styles["Italic"]))
+    story.append(_p("<i>Documento v3.0 — simulación académica; no asesoría clínica.</i>", styles["Italic"]))
 
     doc.build(story)
     return PDF_OUT
@@ -375,12 +381,14 @@ def construir_pdf() -> Path:
 
 def main() -> None:
     dibujar_pipeline_principal()
+    dibujar_ops_capas()
     dibujar_pipeline_e2e()
     dibujar_despliegue_hibrido()
     dibujar_cicd()
     dibujar_datos_ml()
     construir_pdf()
     print(f"Hero: {DIAG_HERO}")
+    print(f"Ops: {DIAG_OPS}")
     print(f"Diagramas: {DIAG_E2E}, {DIAG_DEPLOY}, {DIAG_CICD}, {DIAG_DATOS}")
     print(f"Legacy alias: {DIAG_LEGACY}")
     print(f"PDF: {PDF_OUT}")

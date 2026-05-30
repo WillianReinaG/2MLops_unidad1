@@ -72,10 +72,13 @@ La **propuesta de producción** (documentada, no implementada aquí) define un m
 
 | Documento | Enlace |
 |-----------|--------|
-| Propuesta v2.1 (estructura mlops-sample) | [`docs/PROPUESTA_PIPELINE_MLOPS.md`](../docs/PROPUESTA_PIPELINE_MLOPS.md) |
+| Propuesta v3.0 (posgrado / Ops stack) | [`docs/PROPUESTA_PIPELINE_MLOPS.md`](../docs/PROPUESTA_PIPELINE_MLOPS.md) |
 | PDF entrega | [`docs/Pipeline_MLOps_Propuesta_Completa.pdf`](../docs/Pipeline_MLOps_Propuesta_Completa.pdf) |
+| Model Card | [`docs/MODEL_CARD.md`](../docs/MODEL_CARD.md) |
+| ADR (decisiones de arquitectura) | [`docs/ADR/`](../docs/ADR/) |
 | CHANGELOG | [`docs/CHANGELOG.md`](../docs/CHANGELOG.md) |
-| **Diagrama principal** Offline \| Predictions | [`docs/imgs/ml-pipeline-estado-clinico.png`](../docs/imgs/ml-pipeline-estado-clinico.png) |
+| Diagrama pipeline | [`docs/imgs/ml-pipeline-estado-clinico.png`](../docs/imgs/ml-pipeline-estado-clinico.png) |
+| Diagrama Ops stack | [`docs/imgs/arquitectura-ops-capas.png`](../docs/imgs/arquitectura-ops-capas.png) |
 
 **Resumen:** este servicio cumple la consigna académica con reglas interpretables. El equipo ML promovería LightGBM a producción solo si supera este baseline en F1 macro y recall de la clase AGUDA (~1,9 % del dataset).
 
