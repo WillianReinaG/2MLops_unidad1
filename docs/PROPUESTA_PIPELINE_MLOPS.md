@@ -1,321 +1,785 @@
-# Propuesta de pipeline MLOps — Estado clínico simulado
+# Propuesta de pipeline MLOps end-to-end — Estado clínico simulado
 
-**Proyecto:** 2MLops (Unidad 3)  
-**Repositorio:** [WillianReinaG/2MLops_unidad1](https://github.com/WillianReinaG/2MLops_unidad1)  
-**Alcance:** trabajo académico; no sustituye criterio médico ni diagnostica enfermedades raras por nombre.
+**Versión:** 2.0 (reestructuración Unidad 3)  
+**Proyecto:** [WillianReinaG/2MLops_unidad1](https://github.com/WillianReinaG/2MLops_unidad1)  
+**Alcance:** documentación ejecutable por un equipo ML; trabajo académico, no producto clínico certificado.
 
 ---
 
-## 0. Resumen ejecutivo
+## Resumen ejecutivo
 
 ### Problema
 
-En un entorno clínico simulado, un médico necesita obtener rápidamente una **clasificación orientativa** del estado de un paciente a partir de signos medibles (presión arterial, colesterol, glucosa, hábitos, antecedentes). El reto no es solo calcular una etiqueta, sino hacerlo de forma **reproducible, versionada y desplegable**, como exige un pipeline MLOps.
+Un médico necesita clasificar de forma orientativa el estado de un paciente en una de cuatro categorías (`NO ENFERMO`, `ENFERMEDAD LEVE`, `ENFERMEDAD AGUDA`, `ENFERMEDAD CRÓNICA`) a partir de **al menos tres signos medibles** (presión, colesterol, glucosa, hábitos, antecedentes). El reto MLOps no es solo predecir, sino operar un ciclo **reproducible, versionado, desplegable y observable** de extremo a extremo.
 
-### Usuario y salida
+### Solución propuesta
 
-- **Usuario:** médico o evaluador que ingresa **al menos tres valores** vía formulario web o API REST.
-- **Salida:** exactamente una de cuatro etiquetas:
-  - `NO ENFERMO`
-  - `ENFERMEDAD LEVE`
-  - `ENFERMEDAD AGUDA`
-  - `ENFERMEDAD CRÓNICA`
+Pipeline de **12 etapas** que cubre gobernanza, datos, ML, empaquetado, **despliegue híbrido (local + nube)**, observabilidad y reentrenamiento continuo.
 
-### Propuesta de solución
+| Rol | Implementación |
+|-----|----------------|
+| **MVP / baseline (ya en repo)** | Reglas deterministas en `servicio_estado_clinico/modelo_simulado.py` + Flask + Docker |
+| **Producción objetivo (equipo ML)** | Modelo supervisado **LightGBM** registrado en MLflow, servido en el mismo contrato API `POST /predecir` |
 
-Implementar un pipeline MLOps de extremo a extremo que conecte:
+### Modos de uso del médico
 
-1. Datos tabulares en `data/` (~70 000 registros de ejemplo).
-2. Scripts de preparación y etiquetado (`scripts/ajustar_cuatro_categorias.py`).
-3. Lógica de predicción en `servicio_estado_clinico/modelo_simulado.py` (función determinista calibrada con los datos).
-4. Servicio HTTP Flask con endpoint `POST /predecir`.
-5. Empaquetado y despliegue con Docker.
+1. **Local:** `docker compose up` en su PC (CPU, sin GPU; imagen <500 MB).
+2. **Remoto:** peticiones HTTPS a API en **Google Cloud Run** o **AWS App Runner** con API key.
 
-La propuesta incluye además el **camino de evolución** hacia un modelo supervisado entrenado, monitoreo operativo y retrabajo con datos nuevos.
+Ambos modos comparten **misma imagen Docker**, **mismo JSON de entrada/salida** y **mismo modelo versionado** desde MLflow Model Registry.
 
-### Por qué un pipeline MLOps (argumento central)
+### Diagramas
 
-| Sin pipeline | Con pipeline propuesto |
-|--------------|------------------------|
-| Reglas en código sin trazabilidad | Datos versionados + reglas/modelo versionados |
-| Imposible reproducir resultados en otro PC | Docker + dependencias fijadas |
-| Sin visibilidad de calidad de datos | Etapa explícita de validación |
-| Cambios manuales sin control | Registro de artefactos y promoción a producción |
-| Sin plan ante datos nuevos | Triggers de reentrenamiento y recalibración |
+| Figura | Archivo |
+|--------|---------|
+| Pipeline 12 etapas | [`diagrama_pipeline_e2e.png`](diagrama_pipeline_e2e.png) |
+| Despliegue híbrido | [`diagrama_despliegue_hibrido.png`](diagrama_despliegue_hibrido.png) |
+| CI/CD MLOps | [`diagrama_cicd_mlops.png`](diagrama_cicd_mlops.png) |
+| Flujo datos → ML → serve | [`diagrama_datos_ml.png`](diagrama_datos_ml.png) |
+
+Historial de cambios vs Semana 1: [`CHANGELOG.md`](CHANGELOG.md).
 
 ---
 
-## 1. Diagrama general y etapas del pipeline
+## Registro maestro de suposiciones
 
-El diagrama en `docs/diagrama_pipeline_mlops.png` muestra ocho etapas principales y un ciclo de retroalimentación (monitoreo → nuevos datos → recalibración/reentrenamiento).
-
-### Etapa 1 — Datos brutos
-
-| Aspecto | Detalle |
-|---------|---------|
-| **Por qué** | Toda decisión posterior depende de la calidad y procedencia de los datos. Sin esta base no hay trazabilidad ni auditoría. |
-| **Qué se hace aquí** | Se almacenan CSV sin transformar en `data/raw/enfermedades_cardiacas.csv`. |
-| **Herramientas viables** | Git para metadatos; DVC o carpeta versionada para snapshots grandes. |
-| **Artefacto** | Dataset crudo con columnas demográficas y de riesgo cardiovascular. |
-| **Criterio de éxito** | Archivo accesible, con licencia/uso académico documentado y checksum registrado. |
-
-### Etapa 2 — Ingesta y versionado
-
-| Aspecto | Detalle |
-|---------|---------|
-| **Por qué** | Permite saber **qué versión de datos** produjo cada versión del servicio o del modelo. |
-| **Qué se hace aquí** | Copia controlada del raw hacia `data/processed/` tras limpieza; registro de fecha y script usado. |
-| **Herramientas viables** | Git + `.gitignore` selectivo; DVC; MLflow Datasets. |
-| **Artefacto** | `enfermedades_cardiacas_limpio.csv`. |
-| **Criterio de éxito** | Cada ejecución del pipeline de datos deja un identificador de versión reproducible. |
-
-### Etapa 3 — Calidad y validación de datos
-
-| Aspecto | Detalle |
-|---------|---------|
-| **Por qué** | Valores fuera de rango o esquemas rotos degradan predicciones y generan errores en producción. |
-| **Qué se hace aquí** | Comprobación de tipos, rangos (presión 50–250 mmHg, colesterol/glucosa 1–3), nulos y duplicados antes de etiquetar o servir. |
-| **Herramientas viables** | Scripts Python con pandas; Great Expectations (evolución). |
-| **Artefacto** | Informe de calidad o CSV validado. |
-| **Criterio de éxito** | Cero filas con tipos incorrectos; documentación de filas descartadas. |
-
-### Etapa 4 — Preparación y feature engineering
-
-| Aspecto | Detalle |
-|---------|---------|
-| **Por qué** | Transforma datos crudos en entradas consistentes para reglas o modelos ML. |
-| **Qué se hace aquí** | Limpieza, codificación de variables categóricas y generación de la columna `categoria_clinica` con `scripts/ajustar_cuatro_categorias.py`. |
-| **Herramientas viables** | pandas, scikit-learn (partición train/val/test si hay ML). |
-| **Artefacto** | `data/processed/enfermedades_cardiacas_4categorias.csv`. |
-| **Criterio de éxito** | Distribución de clases documentada; alineación con reglas de `modelo_simulado.py`. |
-
-**Distribución actual de clases (70 000 registros):**
-
-| Categoría | Registros | % |
-|-----------|-----------|---|
-| ENFERMEDAD LEVE | 34 944 | 49,9 % |
-| ENFERMEDAD CRÓNICA | 21 111 | 30,2 % |
-| NO ENFERMO | 12 650 | 18,1 % |
-| ENFERMEDAD AGUDA | 1 295 | 1,9 % |
-
-### Etapa 5 — Entrenamiento, calibración y registro
-
-| Aspecto | Detalle |
-|---------|---------|
-| **Por qué** | Centraliza la lógica predictiva y permite comparar versiones antes de desplegar. |
-| **Implementación actual** | Función determinista en `modelo_simulado.py`, calibrada con las mismas reglas que el script de etiquetado (baseline interpretable). |
-| **Evolución ML** | Regresión logística o Random Forest sobre features tabulares; registro en MLflow o carpeta `models/`. |
-| **Artefacto** | Código versionado + (futuro) archivo `.pkl` o reglas exportadas. |
-| **Criterio de éxito** | Predicciones reproducibles; métricas documentadas si hay modelo entrenado. |
-
-### Etapa 6 — Empaquetado
-
-| Aspecto | Detalle |
-|---------|---------|
-| **Por qué** | Fija dependencias y entorno para que cualquier evaluador obtenga el mismo resultado. |
-| **Qué se hace aquí** | `Dockerfile` en `servicio_estado_clinico/`: Python 3.12-slim, Flask, copia de código y plantillas. |
-| **Herramientas viables** | Docker, `requirements.txt` con versiones fijadas. |
-| **Artefacto** | Imagen `estado-clinico-demo`. |
-| **Criterio de éxito** | `docker build` y `docker run` exitosos en Windows/Linux. |
-
-### Etapa 7 — Despliegue
-
-| Aspecto | Detalle |
-|---------|---------|
-| **Por qué** | Expone la lógica al usuario final (médico/evaluador) de forma accesible. |
-| **Qué se hace aquí** | Contenedor en puerto 5000; Flask en `0.0.0.0`; rutas `GET /` (formulario) y `POST /predecir` (JSON). |
-| **Herramientas viables** | Docker Desktop local; VM compartida; (evolución) cloud run / Kubernetes. |
-| **Artefacto** | Servicio HTTP accesible en `http://localhost:5000/predecir`. |
-| **Criterio de éxito** | Respuesta JSON correcta con ≥3 campos; acceso desde otro PC en la misma LAN. |
-
-### Etapa 8 — Monitoreo y retrabajo
-
-| Aspecto | Detalle |
-|---------|---------|
-| **Por qué** | Detecta degradación, deriva de datos y necesidad de recalibrar reglas o reentrenar. |
-| **Qué se hace aquí** | Registro de peticiones, errores 4xx/5xx, latencia y distribución de clases predichas. |
-| **Herramientas viables** | Logs de Flask; Prometheus/Grafana (evolución). |
-| **Artefacto** | Dashboard o informe periódico de operación. |
-| **Criterio de éxito** | Alertas si la tasa de AGUDA cae fuera del rango histórico (~1–3 %) o suben errores de validación. |
+| ID | Suposición | Implicación si es falsa | Validación |
+|----|------------|-------------------------|------------|
+| S1 | Datos tabulares CSV (~70k filas) representan el dominio académico | Sesgo y métricas no generalizables | Análisis exploratorio + Evidently drift |
+| S2 | Cuatro categorías agregadas son suficientes para el caso de uso | Diagnósticos finos no cubiertos | Alcance documentado; revisión humana |
+| S3 | Inferencia CPU <100 ms; modelo <10 MB | Latencia inaceptable en local | Benchmark en contenedor |
+| S4 | Médico tiene Docker Desktop o conectividad HTTPS | No puede usar el servicio | Modo alternativo documentado |
+| S5 | No se almacenan datos clínicos reales en logs | Riesgo de privacidad | Logs JSON sin PII; retención 30 días |
+| S6 | Clase AGUDA ~1,9 % del dataset | Modelo ignora minoría | Estratificación, class_weight, recall AGUDA |
+| S7 | Reglas MVP calibradas alineadas al CSV | Desalineación train/serve | Tests de paridad reglas vs etiquetas CSV |
+| S8 | Equipo ML tiene acceso a GitHub + cloud free tier | No se despliega cloud | Fallback solo local |
 
 ---
 
-## 2. Enfermedades huérfanas y casos especiales
+## Plantilla de etapas
 
-En este proyecto el término se aborda en **dos sentidos complementarios**, ambos habituales en MLOps aplicado a salud.
-
-### 2.1 Clases minoritarias (desbalance de datos)
-
-`ENFERMEDAD AGUDA` representa solo **~1,9 %** del dataset. En ML esto se conoce como **clase minoritaria** y, en contextos clínicos amplios, se relaciona con patologías poco frecuentes en la muestra de entrenamiento.
-
-**Política del pipeline:**
-
-1. **Prioridad de reglas en inferencia:** la lógica evalúa AGUDA antes que LEVE, evitando que casos de crisis queden absorbidos por la clase mayoritaria.
-2. **Partición estratificada:** en entrenamiento ML futuro, train/val/test mantienen proporción de AGUDA en cada split.
-3. **Métricas por clase:** no basta accuracy global; se exige **recall y F1 de AGUDA** como criterio de promoción.
-4. **Técnicas de balanceo (evolución):** pesos de clase, SMOTE controlado o umbrales de decisión ajustados.
-5. **Monitoreo:** alerta si la frecuencia de predicciones AGUDA en producción se desvía del rango histórico.
-
-### 2.2 Enfermedades raras no representadas en los datos
-
-El dataset cubre variables cardiovasculares genéricas; **no incluye diagnósticos de enfermedades huérfanas** (p. ej. patologías ultra-raras con pocos casos mundiales).
-
-**Política del pipeline:**
-
-1. **Alcance explícito:** el sistema clasifica en **cuatro estados agregados**, no diagnostica enfermedades raras por nombre.
-2. **Respuesta conservadora:** perfiles atípicos o con datos insuficientes pueden clasificarse como `ENFERMEDAD LEVE` o, en evolución del API, devolver un flag `requiere_revision_humana: true`.
-3. **Derivación humana:** cualquier resultado es orientativo; decisiones clínicas reales requieren criterio médico.
-4. **Gobernanza de datos nuevos:** registros de patologías no vistas se archivan para análisis offline, no se usan automáticamente en producción sin revisión.
-
-### 2.3 Tabla de decisión resumida
-
-| Situación | Acción del pipeline |
-|-----------|---------------------|
-| Clase AGUDA con pocos ejemplos en train | Estratificación + métricas por clase + posible oversampling |
-| Patología rara no presente en CSV | No inferir; disclaimer + revisión humana |
-| Entrada con <3 campos | HTTP 400; no predecir |
-| Valores fuera de rango físico | Rechazar en validación de datos (etapa 3) |
+Cada etapa incluye: **Objetivo · Suposiciones · Entradas/Salidas · Tecnologías · Proceso · Criterios · Riesgos · Relación con repo**.
 
 ---
 
-## 3. Entrenamiento y calibración del modelo
+## Etapa 0 — Encuadre del problema y alcance clínico simulado
 
-### 3.1 Nivel actual — Función simulada (entrega Unidad 1/3)
+### Objetivo
 
-La consigna académica **no exige entrenar un modelo ML**. En su lugar:
+Definir el alcance, actores, métricas de negocio simuladas y límites clínicos antes de cualquier pipeline técnico.
 
-1. `scripts/ajustar_cuatro_categorias.py` aplica reglas deterministas al CSV procesado y genera `categoria_clinica`.
-2. `modelo_simulado.py` replica esas reglas para inferencia en tiempo real vía API.
+### Suposiciones
 
-**Argumento:** este baseline es **interpretable, auditable y reproducible**. Un evaluador puede leer las reglas y entender cada predicción sin caja negra.
+- El problema es **triaje orientativo**, no diagnóstico definitivo.
+- El médico acepta disclaimer en UI y documentación.
+- **Implicación si falla:** uso clínico real sin supervisión → mitigar con gates de aprobación y flag `requiere_revision_humana`.
 
-**Reglas (prioridad descendente):**
+### Entradas / salidas
 
-1. **AGUDA:** sistólica ≥180, diastólica ≥110, o (sistólica ≥160 y glucosa ≥3).
-2. **CRÓNICA:** `presencia_enfermedad == 1` (si no fue AGUDA).
-3. **NO ENFERMO:** PA controlada, colesterol/glucosa ≤2, no fumador.
-4. **LEVE:** resto de casos.
+| Entrada | Salida |
+|---------|--------|
+| Requisitos del curso, CSV en `data/` | Documento de alcance, matriz RACI, definición de KPIs |
 
-### 3.2 Nivel evolutivo — Modelo supervisado (pipeline ejecutable)
+### Tecnologías
 
-Si el proyecto evoluciona a ML clásico, el pipeline propone:
+| Elegida | Por qué | Alternativa descartada |
+|---------|---------|------------------------|
+| Markdown en repo | Versionado con Git, revisable en PR | Confluence (dependencia externa, no reproducible en entrega académica) |
+| Matriz RACI ligera | Clarifica roles sin burocracia | ITIL completo (excesivo para el curso) |
 
-| Paso | Acción |
-|------|--------|
-| 1 | Features: presión sistólica/diastólica, colesterol, glucosa, fumador, presencia_enfermedad |
-| 2 | Target: `categoria_clinica` |
-| 3 | Partición: 70 % train / 15 % val / 15 % test, estratificada |
-| 4 | Algoritmo baseline: regresión logística multinomial o Random Forest |
-| 5 | Métricas: accuracy, F1 macro, recall por clase (especialmente AGUDA) |
-| 6 | Registro: MLflow o `models/v1/` con hash del dataset |
-| 7 | Promoción: solo si supera al baseline de reglas en validación |
-| 8 | Fallback: reglas activas si confianza del modelo < umbral |
+### Proceso
 
-**Triggers de reentrenamiento:**
+1. Documentar usuario (médico), entradas mínimas (≥3 campos), salidas (4 etiquetas).
+2. Definir KPIs: latencia p95, tasa error 4xx, F1 macro, recall AGUDA.
+3. Fijar exclusiones: enfermedades huérfanas por nombre, multi-región, HA.
 
-- Acumulación de N registros nuevos (p. ej. 5 000).
-- Caída de F1 macro por debajo del umbral acordado.
-- Calendario periódico (trimestral) con aprobación manual antes de sustituir la imagen Docker.
+### Criterios de aceptación
 
----
+- Alcance firmado por el equipo; KPIs numéricos definidos.
+- Disclaimer clínico presente en propuesta y UI.
 
-## (A) Diseño
+### Riesgos y mitigación
 
-### Objetivo del diseño
+| Riesgo | Mitigación |
+|--------|------------|
+| Alcance difuso | Checklist de exclusiones explícitas |
 
-Entregar una solución **reproducible**: datos estructurados → lógica de predicción acotada → servicio HTTP → contenedor Docker que cualquier evaluador puede construir y ejecutar.
+### Relación con repo
 
-### Restricciones
-
-| Restricción | Justificación |
-|-------------|---------------|
-| Alcance académico | No es producto clínico certificado |
-| Recursos limitados | Un contenedor en máquina local o VM |
-| Datos de ejemplo | Calidad y representatividad no garantizadas |
-| Tiempo de curso | Sin orquestación compleja (K8s, feature store empresarial) |
-
-### Limitaciones y mitigación
-
-| Limitación | Mitigación |
-|------------|------------|
-| Reglas no sustituyen criterio médico | Disclaimer en UI y documentación |
-| Sesgo poblacional del CSV | Documentar origen; no extrapolar a otras poblaciones |
-| Cuatro categorías simplificadas | Revisión humana para casos límite |
-| Sin alta disponibilidad | Aceptable en demo; evolución a réplicas en cloud |
-
-### Tipo de datos
-
-| Columna (processed) | Tipo | Uso en API |
-|---------------------|------|------------|
-| presion_arterial_sistolica | numérico | presion_sistolica |
-| presion_arterial_diastolica | numérico | presion_diastolica |
-| nivel_colesterol | entero 1–3 | nivel_colesterol |
-| nivel_glucosa | entero 1–3 | nivel_glucosa |
-| presencia_enfermedad | 0/1 | presencia_enfermedad |
-| fumador | booleano | fumador |
-| categoria_clinica | etiqueta | solo entrenamiento/evaluación |
+**Implementado:** README y aviso en `templates/index.html`. **Propuesto:** ampliar KPIs en `docs/`.
 
 ---
 
-## (B) Desarrollo
+## Etapa 1 — Ingesta y versionado de datos
 
-### Tipo de modelo
+### Objetivo
 
-| Enfoque | Ventaja | Estado en proyecto |
-|---------|---------|-------------------|
-| Reglas deterministas | Interpretable, sin GPU, cumple consigna | **Implementado** |
-| ML supervisado | Generaliza patrones complejos | Propuesto como evolución |
+Capturar y versionar datasets de forma reproducible vinculando cada experimento a un snapshot de datos.
 
-### Validación y pruebas
+### Suposiciones
 
-1. **Unitarias:** casos límite en umbrales PA (179 vs 180), combinaciones glucosa+colesterol.
-2. **Contrato API:** JSON válido/inválido, códigos HTTP 200/400, campos obligatorios.
-3. **Integración:** formulario web → `/predecir` → respuesta JSON.
-4. **Docker:** build + run + POST desde localhost y desde otro PC en LAN.
-5. **Futuro ML:** matriz de confusión en test; comparación con baseline de reglas.
+- El volumen (~70k filas, <50 MB) cabe en Git + DVC sin lake corporativo.
+- **Implicación si falla:** usar solo object storage (S3) sin DVC remoto.
 
----
+### Entradas / salidas
 
-## (C) Despliegue, monitoreo y datos futuros
+| Entrada | Salida |
+|---------|--------|
+| `data/raw/enfermedades_cardiacas.csv` | Snapshot `data@vN` con hash DVC |
 
-### Despliegue
+### Tecnologías
 
-```bash
-cd servicio_estado_clinico
-docker build -t estado-clinico-demo .
-docker run --rm -p 5000:5000 estado-clinico-demo
-```
+| Elegida | Por qué | Alternativa descartada |
+|---------|---------|------------------------|
+| **Git** | Metadatos, scripts, `.dvc` | Solo carpetas manuales (sin trazabilidad) |
+| **DVC** | Versionado de blobs grandes, reproducibilidad | Delta Lake (overkill para CSV único) |
+| **MinIO** (local) / **S3** (cloud) | Remote DVC barato y estándar | Git LFS (límites y costo en repos grandes) |
 
-Acceso: `http://localhost:5000/` y `POST http://localhost:5000/predecir`.
+### Proceso
 
-### Monitoreo recomendado
+1. `dvc init`; configurar remote MinIO local o bucket S3.
+2. `dvc add data/raw/...` y `data/processed/...`.
+3. Tag `data-v1.0.0` alineado a commit Git.
+4. CI verifica que `dvc pull` + hash coincide antes de entrenar.
 
-- Logs de peticiones y errores.
-- Latencia p95 del endpoint.
-- Distribución de clases predichas vs histórico.
-- Tasa de errores 4xx (validación de entrada).
+### Criterios de aceptación
 
-### Nuevos datos
+- Cada run MLflow referencia `data_version` en tags.
+- Reproducibilidad: mismo hash → mismas métricas ± tolerancia.
 
-Sí pueden aparecer nuevos registros, cambios de definición de variables o poblaciones distintas. El pipeline debe:
+### Riesgos y mitigación
 
-1. Ingerir y versionar el nuevo lote.
-2. Re-ejecutar validación de calidad.
-3. Recalibrar reglas o reentrenar modelo.
-4. Evaluar en hold-out antes de promover a producción.
-5. Reconstruir imagen Docker y desplegar con rollback planificado.
+| Riesgo | Mitigación |
+|--------|------------|
+| Remote DVC no configurado | MinIO en docker-compose de desarrollo |
 
----
+### Relación con repo
 
-## Viabilidad de ejecución
-
-La propuesta es **viable y lista para ejecutarse** en el alcance del curso:
-
-- Datos y scripts ya existen en el repositorio.
-- El servicio Flask/Docker está implementado y probado.
-- Las etapas de ML avanzado (entrenamiento supervisado, MLflow, monitoreo avanzado) están **documentadas como evolución**, no bloquean la entrega actual.
-- Cada etapa tiene artefacto, herramienta y criterio de éxito definidos.
+**Implementado:** CSV en `data/raw/` y `data/processed/`. **Propuesto:** DVC + remote.
 
 ---
 
-*Documento académico — no constituye asesoría clínica.*
+## Etapa 2 — Catálogo y linaje de datos
+
+### Objetivo
+
+Documentar columnas, propietarios, transformaciones y linaje raw → processed → features.
+
+### Suposiciones
+
+- Un catálogo ligero basta; no hay centenas de fuentes.
+- **Implicación si falla:** linaje mínimo solo vía DVC + MLflow tags.
+
+### Entradas / salidas
+
+| Entrada | Salida |
+|---------|--------|
+| Schemas CSV, scripts de transformación | Catálogo de columnas + grafo de linaje |
+
+### Tecnologías
+
+| Elegida | Por qué | Alternativa descartada |
+|---------|---------|------------------------|
+| **DVC pipeline** stages | Linaje embebido en repo | Apache Atlas (infra pesada) |
+| **OpenMetadata** (opcional cloud) | UI de descubrimiento si el equipo crece | DataHub self-hosted (RAM alta en laptop médico) |
+
+### Proceso
+
+1. Documentar schema en catálogo (columna, tipo, rango, nullable).
+2. Registrar transformaciones: raw → limpio → 4 categorías → features.
+3. Enlazar cada stage DVC a commit y script (`scripts/ajustar_cuatro_categorias.py`).
+
+### Criterios de aceptación
+
+- Toda columna usada en entrenamiento tiene entrada en catálogo.
+- Linaje raw → `categoria_clinica` trazable en un diagrama.
+
+### Riesgos y mitigación
+
+| Riesgo | Mitigación |
+|--------|------------|
+| Catálogo desactualizado | PR obligatorio al cambiar schema |
+
+### Relación con repo
+
+**Implementado:** columnas implícitas en CSV. **Propuesto:** catálogo YAML en `docs/data_catalog.yaml`.
+
+---
+
+## Etapa 3 — Validación y quality gates
+
+### Objetivo
+
+Bloquear pipelines downstream si los datos no cumplen esquema, rangos y reglas de negocio.
+
+### Suposiciones
+
+- Rangos físicos conocidos (PA 50–250 mmHg, colesterol/glucosa 1–3).
+- **Implicación si falla:** filas inválidas distorsionan entrenamiento → gate falla CI.
+
+### Entradas / salidas
+
+| Entrada | Salida |
+|---------|--------|
+| CSV procesado | Suite GX/Pandera + informe HTML; gate pass/fail |
+
+### Tecnologías
+
+| Elegida | Por qué | Alternativa descartada |
+|---------|---------|------------------------|
+| **Great Expectations** | Expectativas declarativas, informes HTML, integración CI | Validación ad hoc solo pandas (no auditable) |
+| **Pandera** (complemento) | Schemas Python tipados en scripts | Solo asserts manuales |
+
+### Proceso
+
+1. Definir expectations: tipos, rangos, unicidad de `id`, proporción nulos máxima.
+2. Ejecutar checkpoint en CI (GitHub Actions) antes de train.
+3. Fallo → no promover modelo ni reconstruir imagen prod.
+
+### Criterios de aceptación
+
+- 100 % filas cumplen expectations o filas rechazadas documentadas.
+- CI falla si checkpoint falla.
+
+### Riesgos y mitigación
+
+| Riesgo | Mitigación |
+|--------|------------|
+| Expectations demasiado rígidas | Revisión periódica con datos nuevos |
+
+### Relación con repo
+
+**Implementado:** validación en API (`validar_entrada_minima`). **Propuesto:** GX sobre CSV batch.
+
+---
+
+## Etapa 4 — Feature engineering y feature store
+
+### Objetivo
+
+Producir features consistentes entre entrenamiento e inferencia, eliminando training-serving skew.
+
+### Suposiciones
+
+- Seis features tabulares bastan; no hay embeddings ni texto.
+- **Implicación si falla:** añadir features derivadas (IMC) con mismo pipeline sklearn.
+
+### Entradas / salidas
+
+| Entrada | Salida |
+|---------|--------|
+| `enfermedades_cardiacas_4categorias.csv` | `features.parquet` + definición Feast offline |
+
+### Tecnologías
+
+| Elegida | Por qué | Alternativa descartada |
+|---------|---------|------------------------|
+| **pandas** | Estándar, equipo lo conoce | Spark (innecesario a 70k filas) |
+| **scikit-learn Pipeline** + ColumnTransformer | Serializable con el modelo | Transformaciones duplicadas en train y serve |
+| **Feast** (offline store) | Contrato feature train/serve reproducible | Feature store enterprise Tecton (costo/complejidad) |
+
+### Proceso
+
+1. Seleccionar features: presión sistólica/diastólica, colesterol, glucosa, fumador, presencia_enfermedad.
+2. Codificar categóricas (OneHot/boolean) en Pipeline sklearn.
+3. Materializar parquet versionado; registrar en Feast entity `paciente`.
+4. Exportar pipeline + modelo como un solo artefacto MLflow.
+
+### Criterios de aceptación
+
+- Misma transformación en batch (train) y online (API) vía artefacto único.
+- Tests de paridad: muestra CSV → features idénticas batch vs online.
+
+### Riesgos y mitigación
+
+| Riesgo | Mitigación |
+|--------|------------|
+| Skew train/serve | Un solo Pipeline serializado |
+
+### Relación con repo
+
+**Implementado:** campos API en `modelo_simulado.py`. **Propuesto:** Pipeline sklearn + Feast.
+
+---
+
+## Etapa 5 — Entrenamiento y experimentación
+
+### Objetivo
+
+Entrenar modelo supervisado multiclass optimizado para CPU y registrar experimentos trazables.
+
+### Suposiciones
+
+- LightGBM supera baseline de reglas en F1 macro y recall AGUDA.
+- **Implicación si falla:** mantener reglas en Production hasta nuevo experimento.
+
+### Entradas / salidas
+
+| Entrada | Salida |
+|---------|--------|
+| `features.parquet`, split estratificado | Runs MLflow con params, metrics, artefacto `.pkl` |
+
+### Tecnologías
+
+| Elegida | Por qué | Alternativa descartada |
+|---------|---------|------------------------|
+| **LightGBM** | Tabular, CPU rápido, maneja desbalance | Deep learning (overkill, requiere GPU) |
+| **Optuna** | HPO eficiente, pocas trials | GridSearch exhaustivo (lento) |
+| **MLflow Tracking** | Estándar MLOps, integra registry | Logs en spreadsheets |
+
+### Proceso
+
+1. Split 70/15/15 estratificado por `categoria_clinica`.
+2. Optuna optimiza: `num_leaves`, `learning_rate`, `class_weight` (refuerzo AGUDA).
+3. Log en MLflow: `data_version`, git commit, hiperparámetros, F1 por clase.
+4. Guardar Pipeline completo (preprocess + LGBM).
+
+### Criterios de aceptación
+
+- F1 macro val > baseline reglas.
+- Recall AGUDA val ≥ baseline reglas.
+- Reproducibilidad con `random_state` fijo.
+
+### Riesgos y mitigación
+
+| Riesgo | Mitigación |
+|--------|------------|
+| Overfitting a mayoría LEVE | Estratificación + métricas por clase |
+
+### Relación con repo
+
+**Implementado:** reglas en `modelo_simulado.py`. **Propuesto:** script `ml/train.py` (documentado, no obligatorio en repo).
+
+---
+
+## Etapa 6 — Evaluación, explicabilidad y aprobación humana
+
+### Objetivo
+
+Validar modelo en test, explicar predicciones y obtener gate manual antes de producción.
+
+### Suposiciones
+
+- SHAP TreeExplainer es suficiente para explicabilidad tabular simulada.
+- **Implicación si falla:** importancia de features nativa LightGBM como fallback.
+
+### Entradas / salidas
+
+| Entrada | Salida |
+|---------|--------|
+| Modelo candidato, test set | Informe evaluación + SHAP + decisión approve/reject |
+
+### Tecnologías
+
+| Elegida | Por qué | Alternativa descartada |
+|---------|---------|------------------------|
+| **MLflow** metrics | Comparación entre runs | Métricas manuales |
+| **SHAP** | Explicaciones locales por predicción | LIME (menos estable en tabular) |
+| **Gate manual** (PR + aprobador) | Control humano académico/clínico simulado | Auto-promote (riesgo) |
+
+### Proceso
+
+1. Evaluar en test: matriz confusión, F1, recall AGUDA.
+2. Generar SHAP summary y ejemplos por clase.
+3. Comparar vs baseline reglas (`modelo_simulado.py`) en mismo test.
+4. Aprobador registra decisión en MLflow comment + merge PR.
+
+### Criterios de aceptación
+
+- Test F1 macro ≥ baseline AND recall AGUDA ≥ baseline.
+- Informe SHAP archivado en MLflow artifacts.
+
+### Riesgos y mitigación
+
+| Riesgo | Mitigación |
+|--------|------------|
+| Métricas buenas en test pero mal en prod | Monitoreo Evidently post-deploy |
+
+### Relación con repo
+
+**Implementado:** tests manuales API. **Propuesto:** suite evaluación automatizada.
+
+---
+
+## Etapa 7 — Registro y promoción de modelos
+
+### Objetivo
+
+Gestionar versiones del modelo con estados Staging → Production y rollback.
+
+### Suposiciones
+
+- Un solo modelo activo en Production por entorno.
+- **Implicación si falla:** A/B testing documentado como fase posterior.
+
+### Entradas / salidas
+
+| Entrada | Salida |
+|---------|--------|
+| Artefacto aprobado en MLflow | `estado-clinico-lgbm@Production` |
+
+### Tecnologías
+
+| Elegida | Por qué | Alternativa descartada |
+|---------|---------|------------------------|
+| **MLflow Model Registry** | Integrado con tracking, stages | Carpeta `models/` sin gobernanza |
+| Tags: `data_version`, `git_sha` | Trazabilidad completa | Versionado semver manual |
+
+### Proceso
+
+1. Registrar modelo desde run ganador.
+2. Promover a Staging → smoke tests en contenedor.
+3. Promover a Production tras gate; retirar versión anterior a Archived.
+4. Baseline reglas permanece tag `baseline-rules` para comparación.
+
+### Criterios de aceptación
+
+- Production apunta a un único version ID.
+- Rollback a versión anterior <15 min (redeploy imagen).
+
+### Riesgos y mitigación
+
+| Riesgo | Mitigación |
+|--------|------------|
+| Promoción accidental | Solo CI/CD puede cambiar stage Production |
+
+### Relación con repo
+
+**Implementado:** código reglas versionado en Git. **Propuesto:** registry MLflow.
+
+---
+
+## Etapa 8 — Empaquetado reproducible
+
+### Objetivo
+
+Construir imagen Docker que embeba o descargue modelo Production y dependencias fijadas.
+
+### Suposiciones
+
+- Imagen final <500 MB, sin GPU.
+- **Implicación si falla:** descarga modelo al arranque desde MLflow (cold start mayor).
+
+### Entradas / salidas
+
+| Entrada | Salida |
+|---------|--------|
+| Modelo Production, API spec | Imagen en **GHCR** `ghcr.io/org/estado-clinico:sha` |
+
+### Tecnologías
+
+| Elegida | Por qué | Alternativa descartada |
+|---------|---------|------------------------|
+| **Docker multi-stage** | Imagen mínima | Instalar deps en runtime |
+| **FastAPI + joblib** (evolución API) o Flask actual | FastAPI: OpenAPI, async ligero | Mantener solo Flask sin cambio (válido MVP) |
+| **GHCR** | Integración nativa GitHub Actions | Docker Hub rate limits |
+
+### Proceso
+
+1. Stage build: exportar modelo desde MLflow a `/app/model`.
+2. Stage runtime: Python slim, requirements pinneados, usuario non-root.
+3. Healthcheck `GET /health`.
+4. CI publica imagen tagged por git SHA y `latest-prod`.
+
+### Criterios de aceptación
+
+- `docker pull` + run → `/predecir` responde en <2 s cold start local.
+- Misma imagen pasa escaneo básico (Trivy en CI).
+
+### Riesgos y mitigación
+
+| Riesgo | Mitigación |
+|--------|------------|
+| Modelo desincronizado de imagen | Build solo desde Production registry ID |
+
+### Relación con repo
+
+**Implementado:** `servicio_estado_clinico/Dockerfile` (reglas). **Propuesto:** Dockerfile prod con artefacto MLflow.
+
+---
+
+## Etapa 9 — Despliegue local (médico en su PC)
+
+### Objetivo
+
+Permitir inferencia offline/low-latency en laptop del médico sin dependencia de nube.
+
+### Suposiciones
+
+- Docker Desktop disponible (Windows/Mac); 4 GB RAM libres.
+- **Implicación si falla:** instalador alternativo Python venv documentado en README.
+
+### Entradas / salidas
+
+| Entrada | Salida |
+|---------|--------|
+| Imagen GHCR, `docker-compose.yml` | `http://localhost:5000/predecir` |
+
+### Tecnologías
+
+| Elegida | Por qué | Alternativa descartada |
+|---------|---------|------------------------|
+| **Docker Compose** perfil `local` | Un comando; incluye MLflow opcional dev | Instalación manual pip (menos reproducible) |
+| Mapeo `-p 5000:5000` | Compatible con MVP actual | Puerto dinámico (confunde al médico) |
+
+### Proceso
+
+1. `docker compose --profile local up`.
+2. Formulario `GET /` o `POST /predecir` con JSON actual.
+3. Modelo cargado desde volumen o embebido en imagen.
+4. Documentar requisitos mínimos: CPU 2 cores, 4 GB RAM, 2 GB disco.
+
+### Criterios de aceptación
+
+- Médico obtiene predicción con ≥3 campos sin internet.
+- Latencia p95 <100 ms tras warm-up.
+
+### Riesgos y mitigación
+
+| Riesgo | Mitigación |
+|--------|------------|
+| Firewall bloquea puerto | Instrucciones Windows/Linux en README |
+
+### Relación con repo
+
+**Implementado:** `docker run -p 5000:5000` probado. **Propuesto:** compose con perfil local.
+
+---
+
+## Etapa 10 — Despliegue cloud (médico remoto)
+
+### Objetivo
+
+Exponer la misma API vía HTTPS para médicos sin Docker local o en movilidad.
+
+### Suposiciones
+
+- Conectividad estable; latencia red <200 ms aceptable.
+- **Implicación si falla:** modo local como fallback.
+
+### Entradas / salidas
+
+| Entrada | Salida |
+|---------|--------|
+| Imagen GHCR | URL `https://estado-clinico-xxx.run.app/predecir` |
+
+### Tecnologías
+
+| Elegida | Por qué | Alternativa descartada |
+|---------|---------|------------------------|
+| **Google Cloud Run** | Serverless, escala a cero, pago por uso, HTTPS incluido | EC2 24/7 (costo fijo innecesario) |
+| **AWS App Runner** (alternativa) | Equivalente serverless | Kubernetes (complejidad operativa) |
+| **API key** en header | Auth simple académica | OAuth completo (overkill) |
+
+### Proceso
+
+1. CI despliega imagen a Cloud Run tras promote Production.
+2. Variables: `MLFLOW_MODEL_URI`, `API_KEY` desde Secret Manager.
+3. TLS terminado en Cloud Run; logs sin payload completo (PII mínima).
+4. Médico configura cliente (formulario web apuntando a URL cloud o curl).
+
+### Criterios de aceptación
+
+- HTTPS válido; 401 sin API key; 200 con key válida.
+- Auto-scale 0→1 instancias; cold start <5 s aceptable académicamente.
+
+### Riesgos y mitigación
+
+| Riesgo | Mitigación |
+|--------|------------|
+| Exposición pública | API key + rate limiting Cloud Run |
+
+### Relación con repo
+
+**Implementado:** acceso LAN documentado. **Propuesto:** deploy Cloud Run vía GitHub Actions.
+
+---
+
+## Etapa 11 — Observabilidad, monitoreo y drift
+
+### Objetivo
+
+Detectar degradación operativa y de modelo (data drift, concept drift) en local y cloud.
+
+### Suposiciones
+
+- Volumen de tráfico académico bajo; métricas batch diarias bastan.
+- **Implicación si falla:** revisión manual semanal de logs.
+
+### Entradas / salidas
+
+| Entrada | Salida |
+|---------|--------|
+| Logs API, muestras de input | Dashboard Grafana + alertas drift |
+
+### Tecnologías
+
+| Elegida | Por qué | Alternativa descartada |
+|---------|---------|------------------------|
+| **Prometheus** + **Grafana** | Estándar métricas latencia/errores | Solo logs texto |
+| **Evidently AI** | Reportes drift tabular listos | Custom drift scripts |
+| Logs **JSON** estructurados | Parseables, sin PII | Logs free-text |
+
+### Proceso
+
+1. Instrumentar: `http_requests_total`, `latency_seconds`, `predictions_by_class`.
+2. Evidently compara ventana producción vs referencia train semanalmente.
+3. Alertas: F1 online estimado ↓, drift en presión/glucosa, spike 5xx.
+4. Distribución AGUDA fuera de rango 1–3 % → investigar.
+
+### Criterios de aceptación
+
+- Dashboard operativo en 24 h post-deploy.
+- Alerta configurada para error rate >5 %.
+
+### Riesgos y mitigación
+
+| Riesgo | Mitigación |
+|--------|------------|
+| Sin labels en prod | Drift unsupervised + muestreo manual etiquetado |
+
+### Relación con repo
+
+**Implementado:** logs Flask básicos. **Propuesto:** stack observabilidad.
+
+---
+
+## Etapa 12 — Retraining continuo y gobernanza de cambios
+
+### Objetivo
+
+Reentrenar o recalibrar ante datos nuevos, drift o calendario, con rollback seguro.
+
+### Suposiciones
+
+- Nuevos datos llegan en lotes CSV periódicos.
+- **Implicación si falla:** retrain manual documentado.
+
+### Entradas / salidas
+
+| Entrada | Salida |
+|---------|--------|
+| Trigger (drift / N registros / cron) | Nuevo modelo Staging o recalibración reglas |
+
+### Tecnologías
+
+| Elegida | Por qué | Alternativa descartada |
+|---------|---------|------------------------|
+| **GitHub Actions** scheduled | Ya en GitHub; sin infra extra | Airflow managed (costo) |
+| **Prefect** (alternativa) | Orquestación Python rica | Cron shell scripts (frágil) |
+| MLflow rollback | Un click a versión anterior | Redeploy manual sin registry |
+
+### Triggers propuestos
+
+1. ≥5 000 registros nuevos versionados en DVC.
+2. Evidently drift score > umbral acordado.
+3. F1 online cae >10 % vs baseline.
+4. Calendario trimestral + aprobación manual.
+
+### Proceso
+
+1. Workflow `retrain.yaml`: pull data → GX → train → eval → register Staging.
+2. Smoke test automático; aprobador promueve a Production.
+3. Rebuild imagen → deploy Cloud Run + tag local compose.
+4. Si falla smoke: rollback registry + redeploy imagen anterior.
+
+### Criterios de aceptación
+
+- Pipeline retrain ejecutable en <60 min CPU.
+- Rollback probado al menos una vez en staging.
+
+### Riesgos y mitigación
+
+| Riesgo | Mitigación |
+|--------|------------|
+| Retrain empeora AGUDA | Gate recall AGUDA obligatorio |
+
+### Relación con repo
+
+**Implementado:** script etiquetado manual. **Propuesto:** workflow CI retrain.
+
+---
+
+## Enfermedades huérfanas y desbalance
+
+### Clase minoritaria (AGUDA ~1,9 %)
+
+| Acción | Etapa | Detalle |
+|--------|-------|---------|
+| Estratificación | 5 | Split mantiene AGUDA en train/val/test |
+| `class_weight` / scale_pos_weight | 5 | LightGBM penaliza errores en AGUDA |
+| Prioridad reglas | MVP | AGUDA evaluada antes que LEVE |
+| Métrica gate | 6 | Recall AGUDA ≥ baseline |
+| Monitoreo | 11 | Alerta si frecuencia predicha AGUDA ∉ [1%,3%] |
+
+### Patologías raras no en el dataset
+
+- El sistema **no** nombra enfermedades huérfanas.
+- Perfiles atípicos: respuesta `ENFERMEDAD LEVE` + `"requiere_revision_humana": true` (extensión API propuesta).
+- Datos nuevos de patologías no vistas → cuarentena en bucket `raw/quarantine/`; no entrenan prod sin revisión.
+
+---
+
+## Baseline MVP vs producción objetivo
+
+| Aspecto | MVP (implementado) | Producción (objetivo equipo ML) |
+|---------|-------------------|--------------------------------|
+| Lógica | Reglas `modelo_simulado.py` | LightGBM + sklearn Pipeline |
+| Trazabilidad | Git | Git + DVC + MLflow |
+| Despliegue | Docker local | Docker local **y** Cloud Run |
+| Explicabilidad | Reglas legibles | SHAP + reglas fallback |
+| Promoción | Commit manual | MLflow Registry + CI |
+
+**Criterio de promoción ML → Production:** F1 macro y recall AGUDA en test superan al baseline de reglas en el mismo split.
+
+---
+
+## Seguridad y cumplimiento académico
+
+- Disclaimer clínico en UI y documentos.
+- API key para cloud; rotación semestral.
+- Secretos en GitHub Secrets / GCP Secret Manager (nunca en repo).
+- TLS obligatorio en cloud; logs sin valores de presión identificables si hay riesgo PII.
+- Retención logs 30 días en entorno académico.
+
+---
+
+## CI/CD end-to-end
+
+Ver [`diagrama_cicd_mlops.png`](diagrama_cicd_mlops.png).
+
+| Job | Trigger | Acción |
+|-----|---------|--------|
+| `lint-test` | PR | ruff, pytest unitarios + contrato API |
+| `data-quality` | PR / schedule | DVC pull + Great Expectations |
+| `train` | manual / schedule | Optuna + MLflow |
+| `build-push` | merge main | Docker build → GHCR |
+| `deploy-staging` | tag | Cloud Run staging + smoke |
+| `deploy-prod` | approve | Cloud Run prod + rollback tag |
+
+---
+
+## Plan de puesta en marcha (equipo ML)
+
+| Fase | Duración | Entregables | Roles |
+|------|----------|-------------|-------|
+| 0 — Baseline | 1 sem | MVP reglas operativo (hecho) | Dev |
+| 1 — Datos | 1–2 sem | DVC, GX, catálogo | Data Eng |
+| 2 — ML | 2 sem | LightGBM en MLflow, SHAP, beats baseline | ML Eng |
+| 3 — Deploy híbrido | 1 sem | GHCR, compose local, Cloud Run | MLOps |
+| 4 — Observabilidad | 1 sem | Grafana, Evidently, retrain workflow | MLOps |
+
+**Total estimado:** 6–7 semanas para equipo de 2–3 personas part-time académico.
+
+---
+
+## Viabilidad
+
+- Datos, scripts MVP y Docker **ya existen** en el repositorio.
+- Stack propuesto usa herramientas **open source** y free tiers cloud.
+- Modelo tabular CPU-friendly; médico puede operar **local o remoto** con el mismo contrato API.
+- Cada etapa tiene suposiciones, tecnologías justificadas, criterios de aceptación y relación con el código actual.
+
+---
+
+*Documento académico v2.0 — no constituye asesoría clínica. Ver [CHANGELOG.md](CHANGELOG.md) para evolución desde Semana 1.*

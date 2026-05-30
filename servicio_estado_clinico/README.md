@@ -64,24 +64,21 @@ docker run --rm -p 5000:5000 estado-clinico-demo
 
 Servicio disponible en `http://localhost:5000/predecir` (POST) y `http://localhost:5000/` (formulario).
 
-## Propuesta de pipeline MLOps
+## Rol de este servicio en el pipeline MLOps
 
-La propuesta completa (argumentos por etapa, enfermedades huérfanas, entrenamiento/calibración, diseño, validación y despliegue) está en la carpeta `docs/` del repositorio:
+Este directorio contiene el **MVP baseline ya implementado**: reglas deterministas en `modelo_simulado.py`, servidas vía Flask y Docker.
 
-- [`docs/PROPUESTA_PIPELINE_MLOPS.md`](../docs/PROPUESTA_PIPELINE_MLOPS.md) — texto completo
-- [`docs/Pipeline_MLOps_Propuesta_Completa.pdf`](../docs/Pipeline_MLOps_Propuesta_Completa.pdf) — PDF para entrega
-- [`docs/diagrama_pipeline_mlops.png`](../docs/diagrama_pipeline_mlops.png) — diagrama general
+La **propuesta de producción** (documentada, no implementada aquí) define un modelo **LightGBM** en MLflow Registry, despliegue **local + cloud** (Cloud Run) y pipeline de **12 etapas**. Ver documentación completa:
 
-Resumen de las ocho etapas:
+| Documento | Enlace |
+|-----------|--------|
+| Propuesta v2.0 (12 etapas) | [`docs/PROPUESTA_PIPELINE_MLOPS.md`](../docs/PROPUESTA_PIPELINE_MLOPS.md) |
+| PDF entrega | [`docs/Pipeline_MLOps_Propuesta_Completa.pdf`](../docs/Pipeline_MLOps_Propuesta_Completa.pdf) |
+| CHANGELOG vs Semana 1 | [`docs/CHANGELOG.md`](../docs/CHANGELOG.md) |
+| Diagrama E2E | [`docs/diagrama_pipeline_e2e.png`](../docs/diagrama_pipeline_e2e.png) |
+| Despliegue híbrido | [`docs/diagrama_despliegue_hibrido.png`](../docs/diagrama_despliegue_hibrido.png) |
 
-1. **Datos brutos** — CSV en `data/raw/`.
-2. **Ingesta y versionado** — trazabilidad hacia `data/processed/`.
-3. **Calidad** — validación de esquema y rangos.
-4. **Preparación** — etiquetado en 4 categorías (`scripts/ajustar_cuatro_categorias.py`).
-5. **Calibración / entrenamiento** — reglas en `modelo_simulado.py` (evolución ML documentada en `docs/`).
-6. **Empaquetado** — imagen Docker (`Dockerfile`, `requirements.txt`).
-7. **Despliegue** — contenedor local, endpoint `POST /predecir`.
-8. **Monitoreo y retrabajo** — logs, métricas y recalibración con datos nuevos.
+**Resumen:** este servicio cumple la consigna académica con reglas interpretables. El equipo ML promovería LightGBM a producción solo si supera este baseline en F1 macro y recall de la clase AGUDA (~1,9 % del dataset).
 
 ---
 

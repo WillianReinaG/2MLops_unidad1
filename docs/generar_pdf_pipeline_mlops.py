@@ -1,5 +1,5 @@
 """
-Genera diagrama y PDF de la propuesta MLOps (Unidad 3).
+Genera diagramas y PDF de la propuesta MLOps v2.0 (Unidad 3 — reestructuración E2E).
 Requisitos: pip install matplotlib reportlab
 """
 
@@ -17,389 +17,297 @@ from reportlab.lib.units import cm
 from reportlab.platypus import Image, PageBreak, Paragraph, SimpleDocTemplate, Spacer
 
 BASE = Path(__file__).resolve().parent
-DIAGRAMA = BASE / "diagrama_pipeline_mlops.png"
+DIAG_E2E = BASE / "diagrama_pipeline_e2e.png"
+DIAG_DEPLOY = BASE / "diagrama_despliegue_hibrido.png"
+DIAG_CICD = BASE / "diagrama_cicd_mlops.png"
+DIAG_DATOS = BASE / "diagrama_datos_ml.png"
+DIAG_LEGACY = BASE / "diagrama_pipeline_mlops.png"
 PDF_OUT = BASE / "Pipeline_MLOps_Propuesta_Completa.pdf"
 
 
-def dibujar_diagrama() -> Path:
-    fig, ax = plt.subplots(figsize=(12, 7), dpi=150)
-    ax.set_xlim(0, 12)
-    ax.set_ylim(0, 7)
+def _caja(ax, x, y, w, h, texto, color="#e8eef5", fs=7.5):
+    box = FancyBboxPatch(
+        (x, y), w, h,
+        boxstyle="round,pad=0.02,rounding_size=0.1",
+        linewidth=1.0, edgecolor="#2c3e50", facecolor=color,
+    )
+    ax.add_patch(box)
+    ax.text(x + w / 2, y + h / 2, texto, ha="center", va="center",
+            fontsize=fs, weight="bold", color="#1a1a1a")
+
+
+def _flecha(ax, x1, y1, x2, y2):
+    arr = FancyArrowPatch(
+        (x1, y1), (x2, y2), arrowstyle="-|>", mutation_scale=10,
+        linewidth=1.0, color="#34495e",
+    )
+    ax.add_patch(arr)
+
+
+def dibujar_pipeline_e2e() -> Path:
+    fig, ax = plt.subplots(figsize=(14, 5.5), dpi=150)
+    ax.set_xlim(0, 14)
+    ax.set_ylim(0, 5.5)
     ax.axis("off")
+    ax.text(7, 5.2, "Pipeline MLOps E2E — 12 etapas", ha="center", fontsize=13, weight="bold")
 
-    def caja(x, y, w, h, texto, color="#e8eef5"):
-        box = FancyBboxPatch(
-            (x, y),
-            w,
-            h,
-            boxstyle="round,pad=0.03,rounding_size=0.12",
-            linewidth=1.2,
-            edgecolor="#2c3e50",
-            facecolor=color,
-        )
-        ax.add_patch(box)
-        ax.text(
-            x + w / 2,
-            y + h / 2,
-            texto,
-            ha="center",
-            va="center",
-            fontsize=8,
-            weight="bold",
-            color="#1a1a1a",
-        )
+    etapas = [
+        (0.1, "0\nEncuadre", "#e8daef"),
+        (1.2, "1\nIngesta\nDVC", "#d4e6f1"),
+        (2.3, "2\nCatálogo", "#d4e6f1"),
+        (3.4, "3\nCalidad\nGX", "#d4e6f1"),
+        (4.5, "4\nFeatures\nFeast", "#d4e6f1"),
+        (5.6, "5\nTrain\nLGBM", "#fdebd0"),
+        (6.7, "6\nEval\nSHAP", "#fdebd0"),
+        (7.8, "7\nRegistry\nMLflow", "#fdebd0"),
+        (8.9, "8\nPackage\nDocker", "#d5f5e3"),
+        (10.0, "9\nLocal", "#d5f5e3"),
+        (11.1, "10\nCloud", "#d5f5e3"),
+        (12.2, "11\nMonitor", "#fadbd8"),
+        (13.1, "12\nRetrain", "#fadbd8"),
+    ]
+    w = 0.95
+    h = 0.75
+    y = 3.5
+    for x, txt, col in etapas:
+        _caja(ax, x, y, w, h, txt, col, fs=6.5)
 
-    def flecha(x1, y1, x2, y2, style="-|>"):
-        arr = FancyArrowPatch(
-            (x1, y1),
-            (x2, y2),
-            arrowstyle=style,
-            mutation_scale=11,
-            linewidth=1.1,
-            color="#34495e",
-        )
-        ax.add_patch(arr)
+    for i in range(len(etapas) - 1):
+        x1 = etapas[i][0] + w
+        x2 = etapas[i + 1][0]
+        _flecha(ax, x1, y + h / 2, x2, y + h / 2)
 
-    ax.text(
-        6,
-        6.55,
-        "Pipeline MLOps — Estado clínico simulado",
-        ha="center",
-        fontsize=14,
-        weight="bold",
-    )
-    ax.text(
-        6,
-        6.2,
-        "Flujo principal (arriba) · Despliegue (centro) · Retroalimentación (abajo)",
-        ha="center",
-        fontsize=8,
-        style="italic",
-        color="#555",
-    )
-
-    caja(0.2, 4.6, 1.3, 0.85, "1. Datos\nbrutos", "#d4e6f1")
-    caja(1.7, 4.6, 1.4, 0.85, "2. Ingesta y\nversionado", "#d4e6f1")
-    caja(3.3, 4.6, 1.4, 0.85, "3. Calidad y\nvalidación", "#d4e6f1")
-    caja(4.9, 4.6, 1.4, 0.85, "4. Preparación\n(4 categorías)", "#d4e6f1")
-    caja(6.5, 4.6, 1.5, 0.85, "5. Calibración /\nentrenamiento", "#fdebd0")
-    caja(8.2, 4.6, 1.3, 0.85, "6. Empaquetado\n(Docker)", "#fdebd0")
-    caja(9.7, 4.6, 1.1, 0.85, "7. Registro\nartefacto", "#fdebd0")
-
-    for x1, x2 in [(1.5, 1.7), (3.1, 3.3), (4.7, 4.9), (6.3, 6.5), (8.0, 8.2), (9.5, 9.7)]:
-        flecha(x1, 5.02, x2, 5.02)
-
-    caja(3.5, 2.85, 2.0, 0.9, "Despliegue\nFlask + Docker\n/predecir", "#d5f5e3")
-    caja(5.8, 2.85, 1.8, 0.9, "Usuarios\n(médico / demo)", "#eaeded")
-    caja(7.9, 2.85, 2.0, 0.9, "Casos huérfanos\n/ baja confianza\n→ revisión humana", "#f5eef8")
-
-    flecha(10.25, 4.6, 6.5, 3.75)
-    flecha(5.5, 2.85, 5.8, 2.85)
-    flecha(7.6, 3.3, 7.9, 3.3)
-
-    caja(0.5, 0.9, 2.2, 0.95, "8a. Monitoreo\nlatencia, errores,\ndistribución clases", "#fadbd8")
-    caja(3.0, 0.9, 2.2, 0.95, "8b. Retraining /\nrecalibración reglas", "#fadbd8")
-    caja(5.5, 0.9, 2.2, 0.95, "8c. Nuevos datos\ny gobernanza", "#fadbd8")
-    caja(8.0, 0.9, 2.5, 0.95, "Ciclo cerrado\n→ etapas 1–5", "#fadbd8")
-
-    flecha(4.5, 2.85, 1.6, 1.85)
-    flecha(2.7, 0.9, 2.7, 0.9)
-    flecha(5.2, 1.375, 5.5, 1.375)
-    flecha(7.7, 1.375, 8.0, 1.375)
-    flecha(9.25, 1.85, 7.0, 4.6, style="-|>")
+    _caja(ax, 5.5, 1.8, 3.0, 0.7, "Ciclo cerrado: Monitor → Retrain → Ingesta", "#fadbd8", fs=7)
+    _flecha(ax, 13.5, 3.5, 7.0, 2.5)
+    _flecha(ax, 7.0, 1.8, 1.5, 3.5)
 
     ley = [
+        mpatches.Patch(color="#e8daef", label="Gobernanza"),
         mpatches.Patch(color="#d4e6f1", label="Datos"),
-        mpatches.Patch(color="#fdebd0", label="Modelo / artefacto"),
-        mpatches.Patch(color="#d5f5e3", label="Despliegue"),
-        mpatches.Patch(color="#f5eef8", label="Casos especiales"),
-        mpatches.Patch(color="#fadbd8", label="Operación y mejora"),
+        mpatches.Patch(color="#fdebd0", label="ML"),
+        mpatches.Patch(color="#d5f5e3", label="Deploy"),
+        mpatches.Patch(color="#fadbd8", label="Ops"),
     ]
-    ax.legend(handles=ley, loc="lower left", fontsize=7, frameon=True)
-
+    ax.legend(handles=ley, loc="lower left", fontsize=6, ncol=5)
     fig.tight_layout()
-    fig.savefig(DIAGRAMA, bbox_inches="tight", facecolor="white")
+    fig.savefig(DIAG_E2E, bbox_inches="tight", facecolor="white")
+    fig.savefig(DIAG_LEGACY, bbox_inches="tight", facecolor="white")
     plt.close(fig)
-    return DIAGRAMA
+    return DIAG_E2E
 
 
-def _p(text: str, style) -> Paragraph:
+def dibujar_despliegue_hibrido() -> Path:
+    fig, ax = plt.subplots(figsize=(10, 6), dpi=150)
+    ax.set_xlim(0, 10)
+    ax.set_ylim(0, 6)
+    ax.axis("off")
+    ax.text(5, 5.6, "Despliegue híbrido — mismo API POST /predecir", ha="center", fontsize=12, weight="bold")
+
+    _caja(ax, 4.0, 4.6, 2.0, 0.8, "Médico\n(formulario / API)", "#eaeded")
+
+    _caja(ax, 0.5, 2.5, 2.2, 1.0, "Docker Compose\nlocalhost:5000\n(perfil local)", "#d5f5e3")
+    _caja(ax, 7.3, 2.5, 2.2, 1.0, "Cloud Run /\nApp Runner\nHTTPS + API key", "#d5f5e3")
+
+    _caja(ax, 0.8, 0.8, 1.8, 0.9, "Imagen GHCR\n+ modelo MLflow", "#fdebd0")
+    _caja(ax, 7.6, 0.8, 1.8, 0.9, "Misma imagen\nProduction", "#fdebd0")
+
+    _flecha(ax, 4.5, 4.6, 1.6, 3.5)
+    _flecha(ax, 5.5, 4.6, 8.4, 3.5)
+    _flecha(ax, 1.7, 2.5, 1.7, 1.7)
+    _flecha(ax, 8.3, 2.5, 8.3, 1.7)
+
+    ax.text(5, 0.2, "CPU <100ms · modelo <10MB · sin GPU", ha="center", fontsize=8, style="italic")
+    fig.tight_layout()
+    fig.savefig(DIAG_DEPLOY, bbox_inches="tight", facecolor="white")
+    plt.close(fig)
+    return DIAG_DEPLOY
+
+
+def dibujar_cicd() -> Path:
+    fig, ax = plt.subplots(figsize=(11, 4.5), dpi=150)
+    ax.set_xlim(0, 11)
+    ax.set_ylim(0, 4.5)
+    ax.axis("off")
+    ax.text(5.5, 4.1, "CI/CD MLOps — GitHub Actions", ha="center", fontsize=12, weight="bold")
+
+    jobs = [
+        (0.2, "PR:\nlint + pytest"),
+        (1.6, "DVC pull +\nGreat Expectations"),
+        (3.0, "Train:\nOptuna + MLflow"),
+        (4.4, "Eval +\nSHAP gate"),
+        (5.8, "Build Docker\n→ GHCR"),
+        (7.2, "Deploy\nstaging"),
+        (8.6, "Smoke\ntest"),
+        (10.0, "Promote\nProduction"),
+    ]
+    y = 2.0
+    w = 1.2
+    h = 0.9
+    for x, txt in jobs:
+        _caja(ax, x, y, w, h, txt, "#d4e6f1", fs=6.5)
+    for i in range(len(jobs) - 1):
+        _flecha(ax, jobs[i][0] + w, y + h / 2, jobs[i + 1][0], y + h / 2)
+
+    _caja(ax, 3.5, 0.5, 4.0, 0.7, "Rollback: MLflow Registry → redeploy imagen anterior", "#fadbd8", fs=7)
+    fig.tight_layout()
+    fig.savefig(DIAG_CICD, bbox_inches="tight", facecolor="white")
+    plt.close(fig)
+    return DIAG_CICD
+
+
+def dibujar_datos_ml() -> Path:
+    fig, ax = plt.subplots(figsize=(10, 5), dpi=150)
+    ax.set_xlim(0, 10)
+    ax.set_ylim(0, 5)
+    ax.axis("off")
+    ax.text(5, 4.6, "Flujo datos → ML → inferencia", ha="center", fontsize=12, weight="bold")
+
+    nodos = [
+        (0.3, 3.2, "raw CSV\ndata/raw", "#d4e6f1"),
+        (2.0, 3.2, "DVC\nsnapshot", "#d4e6f1"),
+        (3.7, 3.2, "processed\n4 categorías", "#d4e6f1"),
+        (5.4, 3.2, "features\n.parquet", "#d4e6f1"),
+        (7.1, 3.2, "LightGBM\n+ Pipeline", "#fdebd0"),
+        (8.6, 3.2, "MLflow\nRegistry", "#fdebd0"),
+    ]
+    w, h = 1.4, 0.85
+    for x, y, t, c in nodos:
+        _caja(ax, x, y, w, h, t, c, fs=7)
+    for i in range(len(nodos) - 1):
+        _flecha(ax, nodos[i][0] + w, nodos[i][1] + h / 2, nodos[i + 1][0], nodos[i + 1][1] + h / 2)
+
+    _caja(ax, 1.5, 1.2, 2.5, 0.8, "Inferencia local\nDocker Compose", "#d5f5e3", fs=7)
+    _caja(ax, 5.5, 1.2, 2.5, 0.8, "Inferencia cloud\nCloud Run", "#d5f5e3", fs=7)
+    _flecha(ax, 9.0, 3.2, 2.75, 2.0)
+    _flecha(ax, 9.0, 3.2, 6.75, 2.0)
+
+    _caja(ax, 3.5, 0.2, 3.0, 0.6, "MVP baseline: reglas modelo_simulado.py", "#e8daef", fs=7)
+    fig.tight_layout()
+    fig.savefig(DIAG_DATOS, bbox_inches="tight", facecolor="white")
+    plt.close(fig)
+    return DIAG_DATOS
+
+
+def _p(text, style):
     return Paragraph(text, style)
 
 
 def construir_pdf() -> Path:
     styles = getSampleStyleSheet()
-    normal = ParagraphStyle(
-        "justificado",
-        parent=styles["BodyText"],
-        fontSize=9.5,
-        leading=13,
-        alignment=TA_JUSTIFY,
-        spaceAfter=6,
-    )
-    titulo = ParagraphStyle(
-        "titulo",
-        parent=styles["Title"],
-        fontSize=15,
-        alignment=TA_CENTER,
-        spaceAfter=12,
-    )
-    subtitulo = ParagraphStyle(
-        "sub",
-        parent=styles["Heading2"],
-        fontSize=11,
-        spaceBefore=8,
-        spaceAfter=6,
-    )
-    h3 = ParagraphStyle(
-        "h3",
-        parent=styles["Heading3"],
-        fontSize=10,
-        spaceBefore=6,
-        spaceAfter=4,
-    )
+    normal = ParagraphStyle("j", parent=styles["BodyText"], fontSize=9, leading=12.5,
+                            alignment=TA_JUSTIFY, spaceAfter=5)
+    titulo = ParagraphStyle("t", parent=styles["Title"], fontSize=14, alignment=TA_CENTER, spaceAfter=10)
+    sub = ParagraphStyle("s", parent=styles["Heading2"], fontSize=10.5, spaceBefore=6, spaceAfter=5)
+    h3 = ParagraphStyle("h3", parent=styles["Heading3"], fontSize=9.5, spaceBefore=4, spaceAfter=3)
 
-    doc = SimpleDocTemplate(
-        str(PDF_OUT),
-        pagesize=A4,
-        rightMargin=1.8 * cm,
-        leftMargin=1.8 * cm,
-        topMargin=1.8 * cm,
-        bottomMargin=1.8 * cm,
-    )
-    story: list = []
+    doc = SimpleDocTemplate(str(PDF_OUT), pagesize=A4,
+                            rightMargin=1.7 * cm, leftMargin=1.7 * cm,
+                            topMargin=1.7 * cm, bottomMargin=1.7 * cm)
+    story = []
 
-    story.append(_p("Propuesta de pipeline MLOps", titulo))
-    story.append(
-        _p(
-            "<b>Proyecto:</b> Estado clínico simulado (2MLops, Unidad 3). "
-            "<b>Alcance académico:</b> no sustituye criterio médico. "
-            "Este documento describe el problema, la solución propuesta y "
-            "cada etapa del pipeline con argumentos de diseño y viabilidad.",
-            normal,
-        )
-    )
+    story.append(_p("Propuesta pipeline MLOps end-to-end v2.0", titulo))
+    story.append(_p(
+        "<b>Proyecto:</b> Estado clínico simulado (2MLops). "
+        "<b>Producción objetivo:</b> LightGBM + MLflow. "
+        "<b>MVP implementado:</b> reglas en modelo_simulado.py. "
+        "<b>Despliegue:</b> local (Docker Compose) y cloud (Cloud Run). "
+        "Alcance académico; no uso clínico real.", normal))
 
-    story.append(_p("<b>0. Problema y propuesta</b>", subtitulo))
-    story.append(
-        _p(
-            "<b>Problema.</b> Un médico necesita una clasificación orientativa del "
-            "estado de un paciente a partir de signos medibles (presión arterial, "
-            "colesterol, glucosa, hábitos). El reto MLOps es entregar esa lógica de "
-            "forma reproducible, versionada y desplegable.",
-            normal,
-        )
-    )
-    story.append(
-        _p(
-            "<b>Usuario y salida.</b> El médico ingresa al menos tres valores vía "
-            "formulario o API. El sistema devuelve una de cuatro etiquetas: "
-            "<i>NO ENFERMO</i>, <i>ENFERMEDAD LEVE</i>, <i>ENFERMEDAD AGUDA</i> o "
-            "<i>ENFERMEDAD CRÓNICA</i>.",
-            normal,
-        )
-    )
-    story.append(
-        _p(
-            "<b>Propuesta.</b> Pipeline de extremo a extremo: datos en <i>data/</i>, "
-            "etiquetado con <i>scripts/ajustar_cuatro_categorias.py</i>, lógica en "
-            "<i>modelo_simulado.py</i>, servicio Flask (<i>POST /predecir</i>) e "
-            "imagen Docker. Incluye camino de evolución hacia ML supervisado, "
-            "monitoreo y retrabajo con datos nuevos.",
-            normal,
-        )
-    )
-    story.append(
-        _p(
-            "<b>Argumento MLOps.</b> Sin pipeline, las reglas quedan aisladas en "
-            "código sin trazabilidad. Con pipeline, cada versión del servicio se "
-            "vincula a una versión de datos, pasa validaciones explícitas y se "
-            "despliega en un entorno reproducible (Docker), con plan ante datos "
-            "nuevos y degradación de rendimiento.",
-            normal,
-        )
-    )
+    story.append(_p("<b>Resumen del problema</b>", sub))
+    story.append(_p(
+        "Un médico ingresa al menos tres signos (presión, colesterol, glucosa, etc.) y "
+        "obtiene una de cuatro etiquetas. El pipeline MLOps garantiza datos versionados, "
+        "entrenamiento trazable, empaquetado reproducible, inferencia local o remota, "
+        "monitoreo y reentrenamiento continuo.", normal))
 
-    story.append(_p("<b>Diagrama general</b>", subtitulo))
-    story.append(Image(str(DIAGRAMA), width=16.5 * cm, height=9 * cm))
+    story.append(_p("<b>Registro de suposiciones (extracto)</b>", sub))
+    for s in [
+        "S1: CSV ~70k filas representa dominio académico.",
+        "S3: Inferencia CPU &lt;100 ms; modelo &lt;10 MB.",
+        "S6: Clase AGUDA ~1,9 % — requiere estratificación y recall como gate.",
+        "S8: Médico usa Docker local o HTTPS cloud con API key.",
+    ]:
+        story.append(_p(f"• {s}", normal))
+
+    story.append(_p("<b>Diagrama 1 — Pipeline 12 etapas</b>", sub))
+    story.append(Image(str(DIAG_E2E), width=17 * cm, height=6.5 * cm))
 
     story.append(PageBreak())
-    story.append(_p("<b>1. Etapas del pipeline (argumento por etapa)</b>", subtitulo))
+    story.append(_p("<b>Diagrama 2 — Despliegue híbrido</b>", sub))
+    story.append(Image(str(DIAG_DEPLOY), width=15 * cm, height=9 * cm))
+    story.append(_p(
+        "El médico puede ejecutar la solución en su PC (Docker Compose, localhost:5000) "
+        "o consumir la misma API vía HTTPS en Cloud Run con API key. Misma imagen GHCR y "
+        "mismo contrato JSON POST /predecir.", normal))
 
-    etapas = [
-        (
-            "Etapa 1 — Datos brutos",
-            "Almacena CSV sin transformar (<i>data/raw/enfermedades_cardiacas.csv</i>, "
-            "~70 000 filas). <b>Por qué:</b> base auditable. <b>Artefacto:</b> dataset "
-            "crudo. <b>Herramientas:</b> Git, DVC. <b>Éxito:</b> checksum y licencia "
-            "documentados.",
-        ),
-        (
-            "Etapa 2 — Ingesta y versionado",
-            "Copia controlada hacia <i>data/processed/</i>. <b>Por qué:</b> saber qué "
-            "datos produjeron cada versión del servicio. <b>Artefacto:</b> "
-            "<i>enfermedades_cardiacas_limpio.csv</i>.",
-        ),
-        (
-            "Etapa 3 — Calidad y validación",
-            "Comprueba tipos, rangos (presión 50–250, colesterol/glucosa 1–3), nulos. "
-            "<b>Por qué:</b> evita errores en inferencia. <b>Herramientas:</b> pandas; "
-            "Great Expectations en evolución.",
-        ),
-        (
-            "Etapa 4 — Preparación",
-            "Genera <i>categoria_clinica</i> con reglas docentes. Distribución: LEVE "
-            "49,9 %, CRÓNICA 30,2 %, NO ENFERMO 18,1 %, AGUDA 1,9 %. "
-            "<b>Artefacto:</b> <i>enfermedades_cardiacas_4categorias.csv</i>.",
-        ),
-        (
-            "Etapa 5 — Calibración / entrenamiento",
-            "<b>Actual:</b> función determinista en <i>modelo_simulado.py</i>, "
-            "alineada al script de etiquetado (baseline interpretable). "
-            "<b>Evolución:</b> regresión logística o Random Forest; registro en "
-            "MLflow. Promoción solo si supera reglas en validación.",
-        ),
-        (
-            "Etapa 6 — Empaquetado",
-            "Dockerfile fija Python 3.12 y Flask. <b>Por qué:</b> mismo resultado en "
-            "cualquier PC del evaluador. <b>Artefacto:</b> imagen "
-            "<i>estado-clinico-demo</i>.",
-        ),
-        (
-            "Etapa 7 — Despliegue",
-            "Contenedor en puerto 5000; <i>GET /</i> (formulario) y "
-            "<i>POST /predecir</i>. Probado en localhost y desde otro PC en LAN.",
-        ),
-        (
-            "Etapa 8 — Monitoreo y retrabajo",
-            "Logs, latencia, distribución de clases predichas, alertas si AGUDA "
-            "cae fuera del rango histórico. Triggers de recalibración: volumen de "
-            "datos nuevos, caída de métricas o calendario.",
-        ),
+    story.append(_p("<b>Diagrama 3 — CI/CD</b>", sub))
+    story.append(Image(str(DIAG_CICD), width=16 * cm, height=6.5 * cm))
+
+    story.append(_p("<b>Diagrama 4 — Datos → ML → serve</b>", sub))
+    story.append(Image(str(DIAG_DATOS), width=15 * cm, height=7.5 * cm))
+
+    story.append(PageBreak())
+    story.append(_p("<b>Etapas del pipeline (síntesis)</b>", sub))
+
+    etapas_txt = [
+        ("0 Encuadre", "Alcance, KPIs, disclaimer. Markdown + RACI."),
+        ("1 Ingesta", "Git + DVC + MinIO/S3. Snapshot data@vN."),
+        ("2 Catálogo", "Linaje DVC; OpenMetadata opcional."),
+        ("3 Calidad", "Great Expectations; gate en CI."),
+        ("4 Features", "pandas + sklearn Pipeline + Feast offline."),
+        ("5 Entrenamiento", "LightGBM + Optuna + MLflow Tracking."),
+        ("6 Evaluación", "SHAP + gate humano; beat baseline reglas."),
+        ("7 Registry", "MLflow Staging → Production; rollback."),
+        ("8 Empaquetado", "Docker multi-stage → GHCR."),
+        ("9 Local", "Docker Compose perfil local; sin GPU."),
+        ("10 Cloud", "Cloud Run / App Runner; TLS + API key."),
+        ("11 Monitoreo", "Prometheus, Grafana, Evidently drift."),
+        ("12 Retrain", "GitHub Actions / Prefect; triggers drift/F1/cron."),
     ]
-    for tit, cuerpo in etapas:
-        story.append(_p(f"<b>{tit}</b>", h3))
-        story.append(_p(cuerpo, normal))
+    for tit, txt in etapas_txt:
+        story.append(_p(f"<b>{tit}.</b> {txt}", normal))
+
+    story.append(_p("<b>Enfermedades huérfanas y desbalance</b>", sub))
+    story.append(_p(
+        "AGUDA es ~1,9 % del dataset: estratificación, class_weight en LightGBM, "
+        "recall AGUDA como criterio de promoción, monitoreo de frecuencia en producción. "
+        "Patologías raras no presentes en CSV: no se diagnostican por nombre; flag "
+        "requiere_revision_humana propuesto; datos nuevos en cuarentena.", normal))
+
+    story.append(_p("<b>Baseline vs producción</b>", sub))
+    story.append(_p(
+        "MVP (implementado): reglas deterministas + Flask + Docker. "
+        "Producción (objetivo): LightGBM registrado en MLflow. Promoción solo si "
+        "F1 macro y recall AGUDA superan baseline en mismo test split.", normal))
 
     story.append(PageBreak())
-    story.append(_p("<b>2. Enfermedades huérfanas y casos especiales</b>", subtitulo))
-    story.append(
-        _p(
-            "<b>2.1 Clases minoritarias (desbalance).</b> "
-            "<i>ENFERMEDAD AGUDA</i> es solo ~1,9 % del dataset. Política: (1) reglas "
-            "evalúan AGUDA antes que LEVE; (2) partición estratificada en train/val/test; "
-            "(3) métricas por clase (recall/F1 de AGUDA); (4) pesos de clase u oversampling "
-            "en evolución ML; (5) monitoreo de frecuencia de AGUDA en producción.",
-            normal,
-        )
-    )
-    story.append(
-        _p(
-            "<b>2.2 Patologías raras no representadas.</b> El CSV no cubre enfermedades "
-            "huérfanas por nombre. El sistema clasifica en cuatro estados agregados, no "
-            "diagnostica patologías ultra-raras. Perfiles atípicos: respuesta conservadora "
-            "(LEVE) o flag de revisión humana en evolución del API. Toda decisión clínica "
-            "real requiere criterio médico.",
-            normal,
-        )
-    )
-    story.append(
-        _p(
-            "<b>2.3 Entrada insuficiente.</b> Menos de tres campos válidos → HTTP 400; "
-            "no se emite predicción. Valores fuera de rango físico → rechazo en etapa 3.",
-            normal,
-        )
-    )
+    story.append(_p("<b>Plan de puesta en marcha (equipo ML)</b>", sub))
+    story.append(_p(
+        "Fase 0 (1 sem): baseline operativo — hecho. Fase 1 (1–2 sem): DVC + GX + catálogo. "
+        "Fase 2 (2 sem): LightGBM en MLflow + SHAP. Fase 3 (1 sem): GHCR + local + Cloud Run. "
+        "Fase 4 (1 sem): Grafana + Evidently + workflow retrain. Total ~6–7 semanas, 2–3 personas.", normal))
 
-    story.append(_p("<b>3. Entrenamiento y calibración</b>", subtitulo))
-    story.append(
-        _p(
-            "<b>Nivel actual (consigna académica).</b> No hay ML entrenado. "
-            "<i>ajustar_cuatro_categorias.py</i> calibra reglas sobre el CSV; "
-            "<i>modelo_simulado.py</i> las aplica en inferencia. Ventaja: interpretable "
-            "y auditable.",
-            normal,
-        )
-    )
-    story.append(
-        _p(
-            "<b>Reglas (prioridad):</b> (1) AGUDA: sistólica ≥180, diastólica ≥110, "
-            "o sistólica ≥160 con glucosa ≥3; (2) CRÓNICA: presencia_enfermedad=1; "
-            "(3) NO ENFERMO: PA controlada, lípidos/glucosa ≤2, no fumador; "
-            "(4) LEVE: resto.",
-            normal,
-        )
-    )
-    story.append(
-        _p(
-            "<b>Evolución ML.</b> Features tabulares → target categoria_clinica → "
-            "split 70/15/15 estratificado → baseline logístico/Random Forest → "
-            "métricas F1 macro y por clase → registro versionado → promoción con "
-            "aprobación manual → fallback a reglas si confianza baja.",
-            normal,
-        )
-    )
+    story.append(_p("<b>Viabilidad</b>", sub))
+    story.append(_p(
+        "Stack open source y free tiers. Datos y MVP ya en repo. Cada etapa tiene "
+        "suposiciones, tecnologías justificadas, criterios de aceptación y relación con "
+        "código actual. Ver CHANGELOG.md para cambios vs Semana 1.", normal))
 
-    story.append(_p("<b>(A) Diseño</b>", subtitulo))
-    story.append(
-        _p(
-            "<b>Restricciones:</b> alcance académico, un contenedor, datos de ejemplo, "
-            "sin orquestador complejo. <b>Limitaciones:</b> no uso clínico real, sesgo "
-            "poblacional, cuatro categorías simplificadas — mitigadas con disclaimer, "
-            "revisión humana y plan de reentrenamiento. <b>Datos:</b> CSV tabular con "
-            "presión, colesterol, glucosa, fumador, presencia_enfermedad y etiqueta "
-            "derivada.",
-            normal,
-        )
-    )
-
-    story.append(_p("<b>(B) Desarrollo</b>", subtitulo))
-    story.append(
-        _p(
-            "<b>Modelo:</b> reglas deterministas (implementado); ML supervisado "
-            "(evolución). <b>Pruebas:</b> unitarias en umbrales; contrato API JSON/HTTP; "
-            "formulario web; build Docker; acceso LAN; futura matriz de confusión en test.",
-            normal,
-        )
-    )
-
-    story.append(_p("<b>(C) Despliegue, monitoreo y datos futuros</b>", subtitulo))
-    story.append(
-        _p(
-            "<b>Despliegue:</b> <i>docker build -t estado-clinico-demo .</i> y "
-            "<i>docker run -p 5000:5000</i>. <b>Monitoreo:</b> logs, latencia, errores "
-            "4xx/5xx, distribución de predicciones. <b>Datos nuevos:</b> ingesta "
-            "versionada → validación → recalibración o reentrenamiento → evaluación → "
-            "nueva imagen Docker con rollback planificado.",
-            normal,
-        )
-    )
-
-    story.append(Spacer(1, 0.4 * cm))
-    story.append(
-        _p(
-            "<b>Conclusión de viabilidad.</b> La propuesta es clara, las etapas son "
-            "viables y están listas para ejecución en el alcance del curso: datos, "
-            "scripts, servicio y Docker ya implementados; evolución ML documentada "
-            "sin bloquear la entrega actual.",
-            normal,
-        )
-    )
-    story.append(
-        _p(
-            "<i>Documento académico — no constituye asesoría clínica.</i>",
-            styles["Italic"],
-        )
-    )
+    story.append(Spacer(1, 0.3 * cm))
+    story.append(_p("<i>Documento académico v2.0 — no constituye asesoría clínica.</i>", styles["Italic"]))
 
     doc.build(story)
     return PDF_OUT
 
 
 def main() -> None:
-    dibujar_diagrama()
+    dibujar_pipeline_e2e()
+    dibujar_despliegue_hibrido()
+    dibujar_cicd()
+    dibujar_datos_ml()
     construir_pdf()
-    print(f"Diagrama: {DIAGRAMA}")
+    print(f"Diagramas: {DIAG_E2E}, {DIAG_DEPLOY}, {DIAG_CICD}, {DIAG_DATOS}")
+    print(f"Legacy alias: {DIAG_LEGACY}")
     print(f"PDF: {PDF_OUT}")
 
 
