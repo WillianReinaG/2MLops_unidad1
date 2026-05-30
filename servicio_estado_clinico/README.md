@@ -64,13 +64,24 @@ docker run --rm -p 5000:5000 estado-clinico-demo
 
 Servicio disponible en `http://localhost:5000/predecir` (POST) y `http://localhost:5000/` (formulario).
 
-## Propuesta breve de pipeline MLOps (ilustrativa)
+## Propuesta de pipeline MLOps
 
-1. **Datos:** ingesta y versionado de tablas o archivos (por ejemplo carpeta `data/` con trazabilidad).
-2. **Calidad:** validación de esquema y rangos antes de servir o entrenar.
-3. **Modelado:** en este trabajo la lógica es una función fija; en un proyecto real habría entrenamiento y registro de artefactos.
-4. **Empaquetado:** imagen Docker con dependencias fijadas (`requirements.txt`).
-5. **Despliegue:** contenedor en máquina local, nube o orquestador según el curso.
+La propuesta completa (argumentos por etapa, enfermedades huérfanas, entrenamiento/calibración, diseño, validación y despliegue) está en la carpeta `docs/` del repositorio:
+
+- [`docs/PROPUESTA_PIPELINE_MLOPS.md`](../docs/PROPUESTA_PIPELINE_MLOPS.md) — texto completo
+- [`docs/Pipeline_MLOps_Propuesta_Completa.pdf`](../docs/Pipeline_MLOps_Propuesta_Completa.pdf) — PDF para entrega
+- [`docs/diagrama_pipeline_mlops.png`](../docs/diagrama_pipeline_mlops.png) — diagrama general
+
+Resumen de las ocho etapas:
+
+1. **Datos brutos** — CSV en `data/raw/`.
+2. **Ingesta y versionado** — trazabilidad hacia `data/processed/`.
+3. **Calidad** — validación de esquema y rangos.
+4. **Preparación** — etiquetado en 4 categorías (`scripts/ajustar_cuatro_categorias.py`).
+5. **Calibración / entrenamiento** — reglas en `modelo_simulado.py` (evolución ML documentada en `docs/`).
+6. **Empaquetado** — imagen Docker (`Dockerfile`, `requirements.txt`).
+7. **Despliegue** — contenedor local, endpoint `POST /predecir`.
+8. **Monitoreo y retrabajo** — logs, métricas y recalibración con datos nuevos.
 
 ---
 
