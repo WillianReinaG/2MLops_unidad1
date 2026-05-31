@@ -27,9 +27,9 @@ Esta versión transforma la idea inicial del Punto 1 en un **pipeline MLOps docu
   | Monitoreo ops | No especificado | **Prometheus + Grafana** |
   | Monitoreo ML | No especificado | **Evidently AI** (drift) |
   | Explicabilidad | Implícita en reglas | **SHAP** documentado |
-  | Gobernanza | No existía | **Model Card + ADR 001–003** |
+  | Gobernanza | No existía | Suposiciones S1–S10 y restricciones en `PROPUESTAPipeLine.md` |
 
-* **Diagrama general:** diagrama Mermaid en `docs/PROPUESTAPipeLine.md` (misma topología que `PipeLineML.drawio.png` del ejemplo; herramientas actualizadas en cabecera).
+* **Diagrama general:** [`PipeLineML.png`](PipeLineML.png) en la raíz (visible en README y `PROPUESTAPipeLine.md`); misma topología que el ejemplo `entrega3`.
 * **Suposiciones:** tabla global S1–S10 + suposiciones **por etapa** (Data, Develop, Staging, PROD).
 * **Roles QA formalizados:** QA en Develop (`Api Deploy Dev`) y **QA Medical System simulado** en Staging, como en el ejemplo de referencia.
 * **Enfermedades huérfanas y desbalance:** política explícita para AGUDA (~1,9 %) y patologías no presentes en CSV.
@@ -39,7 +39,7 @@ Esta versión transforma la idea inicial del Punto 1 en un **pipeline MLOps docu
 
 | Etapa / tema | Semana 1 | Unidad 3 |
 | :--- | :--- | :--- |
-| Alcance documental | PDF único (`docs/punto 1 descripcion pipeline MLops.pdf`) | Markdown completo + diagrama + ADR |
+| Alcance documental | PDF en rama `main` | Markdown + [`PipeLineML.png`](PipeLineML.png) |
 | Data Pipeline | Mención genérica a datos | DVC, EDA, GX, Feast, gates detallados |
 | Develop | Inferencia con reglas | Unit tests, CI seguridad, entrenamiento MLflow |
 | Staging | No existía | Registry MLflow + Api Deploy ST + QA medical |
@@ -48,13 +48,24 @@ Esta versión transforma la idea inicial del Punto 1 en un **pipeline MLOps docu
 | Métricas | No definidas | F1 macro, recall AGUDA, SLO latencia |
 | Ciclo cerrado | No | Drift → re-entrenamiento → Data Pipeline |
 
-### Documentación añadida
+### Documentación añadida (entrega Unidad 3)
 
+* [`PipeLineML.png`](PipeLineML.png) — diagrama general en la raíz  
 * [`docs/PROPUESTAPipeLine.md`](docs/PROPUESTAPipeLine.md) — propuesta detallada Unidad 3  
-* [`docs/MODEL_CARD.md`](docs/MODEL_CARD.md) — alcance y limitaciones del modelo  
-* [`docs/ADR/`](docs/ADR/) — decisiones baseline vs LightGBM, despliegue híbrido, observabilidad  
-* [`docs/CHANGELOG.md`](docs/CHANGELOG.md) — historial técnico extendido (versiones 2.x–3.x de iteraciones previas)  
+* [`CHANGELOG.md`](CHANGELOG.md) — este archivo (comparación Semana 1 → Unidad 3)  
 * [`README.md`](README.md) — índice del repositorio para evaluación  
+
+### Documentación retirada (no requerida en Unidad 3)
+
+Se eliminaron artefactos de iteraciones intermedias (v2.x–v3.x) que **no** pide la rúbrica de Unidad 3 ni el formato del ejemplo [`entrega3`](https://github.com/rchicangana/healthPrediction-mlops-U2/tree/entrega3):
+
+* `docs/Pipeline_MLOps_Propuesta_Completa.pdf` — PDF alternativo de propuesta  
+* `docs/PROPUESTA_PIPELINE_MLOPS.md` — documento v3.x sustituido por `PROPUESTAPipeLine.md`  
+* `docs/generar_pdf_pipeline_mlops.py` — script generador de PDF/diagramas  
+* `docs/CHANGELOG.md` duplicado — un solo CHANGELOG en la **raíz** (como el ejemplo)  
+* `docs/MODEL_CARD.md`, `docs/ADR/` — anexos posgrado no exigidos en esta entrega  
+* Diagramas PNG adicionales (`diagrama_*.png`, `docs/imgs/`) — sustituidos por [`PipeLineML.png`](PipeLineML.png)  
+* `docs/punto 1 descripcion pipeline MLops.pdf` — **no duplicado** en `unidad3`; el PDF original permanece solo en la rama [`main`](https://github.com/WillianReinaG/2MLops_unidad1/blob/main/docs/punto%201%20descripcion%20pipeline%20MLops.pdf)
 
 ### Sin cambios intencionales en código de aplicación
 
@@ -68,7 +79,7 @@ Propuesta inicial del Punto 1 y MVP funcional.
 
 ### Contenido en `main`
 
-* [`docs/punto 1 descripcion pipeline MLops.pdf`](docs/punto%201%20descripcion%20pipeline%20MLops.pdf) — descripción inicial del pipeline (formato PDF, sin stack completo ni etapas detalladas por herramienta).
+* [Propuesta Semana 1 (PDF en rama `main`)](https://github.com/WillianReinaG/2MLops_unidad1/blob/main/docs/punto%201%20descripcion%20pipeline%20MLops.pdf) — descripción inicial del pipeline.
 * [`servicio_estado_clinico/`](servicio_estado_clinico/) — API Flask + reglas en `modelo_simulado.py` + Dockerfile.
 * [`data/`](data/) — CSV raw y procesado (~70 000 filas, cuatro categorías).
 * [`scripts/ajustar_cuatro_categorias.py`](scripts/ajustar_cuatro_categorias.py) — preparación de datos.
@@ -86,5 +97,4 @@ Propuesta inicial del Punto 1 y MVP funcional.
 ## Cómo leer este archivo
 
 1. **Versión 1.0.0** = lo que existía en Semana 1 (`main`).  
-2. **Versión 2.0.0** = lo entregado en Unidad 3 (`unidad3`): propuesta ampliada alineada al [ejemplo `entrega3`](https://github.com/rchicangana/healthPrediction-mlops-U2/tree/entrega3).  
-3. Detalle técnico adicional de iteraciones documentales previas: [`docs/CHANGELOG.md`](docs/CHANGELOG.md).
+2. **Versión 2.0.0** = lo entregado en Unidad 3 (`unidad3`): propuesta alineada al [ejemplo `entrega3`](https://github.com/rchicangana/healthPrediction-mlops-U2/tree/entrega3).

@@ -37,7 +37,7 @@ La estructura del diagrama sigue el modelo de referencia del curso ([healthPredi
 | **Monitoreo ML (drift)** | **Evidently AI** | Detección de data/concept drift tabular; no presente en el ejemplo original. |
 | **Seguridad de código / imagen** | **Bandit** + **Trivy** | Análisis estático Python y CVE en imagen Docker; sustituye SonarQube del ejemplo. |
 | **Explicabilidad (XAI)** | **SHAP** | Factores que explican la predicción para auditoría académica. |
-| **Documentación de modelo** | **Model Card** + **ADR** | Alcance, limitaciones y decisiones de arquitectura explícitas. |
+| **Documentación de modelo** | Secciones §1.2–1.4 y §5 de este documento | Alcance, limitaciones y suposiciones S1–S10 en la misma propuesta (sin archivos aparte). |
 
 **Decisión explícita vs ejemplo `entrega3`:** se mantiene la **misma topología de etapas** (cuatro bloques + monitoreo + retroalimentación), pero se priorizan herramientas vistas en MLOps moderno (DVC, MLflow, GitHub Actions, Evidently) en lugar de Jenkins, PostgreSQL central y SonarQube.
 
@@ -81,7 +81,7 @@ La estructura del diagrama sigue el modelo de referencia del curso ([healthPredi
 | S5 | No se registran datos identificables en logs | Riesgo privacidad | Redacción y retención 30 días |
 | S6 | AGUDA permanece ~1–3 % de prevalencia | Métricas engañosas | Recall AGUDA obligatorio en gates |
 | S7 | Reglas MVP ≡ lógica acordada del script CSV | Training-serving skew | Tests de paridad baseline |
-| S8 | Free tier GCP suficiente para demo | Solo edge | ADR-002 despliegue híbrido |
+| S8 | Free tier GCP suficiente para demo | Solo edge | Despliegue híbrido edge prioritario (§5.3) |
 | S9 | Ningún agente LLM decide diagnóstico solo | Riesgo ético | AgentOps solo asistencia (horizonte) |
 | S10 | Equipo 2–3 personas part-time | Retrasos | Roadmap por fases en §6 |
 
@@ -188,7 +188,7 @@ La estructura del diagrama sigue el modelo de referencia del curso ([healthPredi
 | Aspecto | Detalle |
 | :--- | :--- |
 | **Tecnología** | **LightGBM** + **Optuna** + **MLflow Tracking** |
-| **Baseline** | Reglas en `modelo_simulado.py` como **champion inicial** ([ADR-001](ADR/001-baseline-reglas-vs-lightgbm.md)) |
+| **Baseline** | Reglas en `modelo_simulado.py` como **champion inicial** hasta que LightGBM supere F1 macro y recall AGUDA en hold-out |
 | **Estrategia desbalance** | Estratificación en split; `class_weight`; SMOTE opcional; métrica focal: **recall AGUDA** |
 | **Suposición** | LightGBM supera reglas solo si mejora F1 macro **y** recall AGUDA en hold-out estratificado. |
 | **Implicación** | No se reemplaza el MVP en prod sin evidencia en MLflow. |
@@ -279,7 +279,7 @@ La estructura del diagrama sigue el modelo de referencia del curso ([healthPredi
 
 | Modo | Tecnología | Justificación |
 | :--- | :--- | :--- |
-| **Edge** | Docker Compose, `localhost:5000` | Privacidad, baja latencia, sin internet ([ADR-002](ADR/002-despliegue-hibrido-edge-cloud.md)) |
+| **Edge** | Docker Compose, `localhost:5000` | Privacidad, baja latencia, sin internet (§5.3) |
 | **Cloud** | **Cloud Run** + TLS + API key | Acceso remoto; escalado automático |
 | **Contrato único** | `POST /predecir` | Misma lógica de negocio; evita duplicar código |
 
@@ -315,7 +315,7 @@ La estructura del diagrama sigue el modelo de referencia del curso ([healthPredi
 | **Tecnología** | **Evidently AI** (reportes semanales) + alertas Prometheus |
 | **Concept drift** | Cambio en epidemiología simulada o definición de síntomas |
 | **Data drift** | Distribución de presión/glucosa/colesterol se desvía del train set |
-| **Activación** | Si recall offline cae &gt;10 % vs baseline **o** drift &gt; τ → workflow **re-entrenamiento** reinicia en **Data Pipeline** ([ADR-003](ADR/003-observabilidad-aiops.md)) |
+| **Activación** | Si recall offline cae &gt;10 % vs baseline **o** drift &gt; τ → workflow **re-entrenamiento** reinicia en **Data Pipeline** (§5.5) |
 | **Mejora vs Semana 1** | MVP no contemplaba drift ni ciclo cerrado; solo inferencia puntual. |
 
 ---
@@ -324,81 +324,11 @@ La estructura del diagrama sigue el modelo de referencia del curso ([healthPredi
 
 La topología replica el diagrama de referencia del curso (cuatro columnas + monitoreo + retroalimentación). Las etiquetas del dibujo muestran **nuestras** herramientas.
 
-```mermaid
-flowchart TB
-    subgraph STACK["Solutions Stack"]
-        direction LR
-        ST1["Python · GitHub"]
-        ST2["GitHub Actions · Docker · GHCR"]
-        ST3["DVC · MinIO · Great Expectations"]
-        ST4["LightGBM · Optuna · MLflow"]
-        ST5["Prometheus · Grafana · Evidently"]
-        ST6["Bandit · Trivy · Cloud Run"]
-    end
-
-    subgraph DP["Data Pipeline"]
-        SCH[Schedule / workflow_dispatch]
-        EXT[Extract · DVC pull]
-        TRF[Transform · Feast offline]
-        OBF[Obfuscation check]
-        EDA[EDA Jupyter]
-        DQ[Great Expectations]
-        DATA[(data@vN parquet)]
-        SCH --> EXT --> TRF --> OBF --> EDA --> DQ --> DATA
-    end
-
-    subgraph DEV["Develop"]
-        TM[Trigger merge develop]
-        SEC1[Bandit + Trivy]
-        UT[Unit tests pytest]
-        BLD1[Docker build :dev]
-        TR1[LightGBM + Optuna]
-        EV1[Eval + SHAP]
-        VAL1[Model validation]
-        API1[Api Deploy Dev]
-        QA1[QA team]
-        TM --> SEC1 --> UT --> BLD1
-        DATA --> TR1 --> EV1 --> VAL1 --> API1
-        QA1 --> API1
-    end
-
-    subgraph STG["Staging"]
-        TM2[Trigger merge main]
-        SEC2[Bandit + Trivy]
-        BLD2[Docker build :staging]
-        TR2[Train / reuse run]
-        EV2[Evaluation]
-        REG[MLflow Registry Save]
-        API2[Api Deploy ST]
-        QMS[QA Medical System simulado]
-        TM2 --> SEC2 --> BLD2
-        DATA --> TR2 --> EV2 --> REG --> API2
-        API2 --> QMS
-    end
-
-    subgraph PROD["PROD"]
-        REQ[Request Deploy Prod]
-        GET[MLflow Get Production]
-        DEP[Deploy edge + Cloud Run]
-        MED[Medical System / Usuario]
-        MON[Monitoring Services]
-        PERF[Performance Prometheus]
-        LOG[Logs + SHAP sample]
-        DRIFT[Evidently drift]
-        REQ --> GET --> DEP --> MED
-        DEP --> MON
-        MON --> PERF
-        MON --> LOG
-        MON --> DRIFT
-    end
-
-    DRIFT -->|Re-entrenamiento| SCH
-    API2 -->|Aprobado| REQ
-```
+![Diagrama del pipeline MLOps](../PipeLineML.png)
 
 **Lectura del diagrama:** el flujo avanza de izquierda a derecha. El monitoreo en PROD puede disparar un nuevo ciclo en Data Pipeline. Develop y Staging repiten patrones CI/CD + ML, pero Staging añade **registro MLflow** y **QA Medical System** antes de producción.
 
-Documentos complementarios: [Model Card](MODEL_CARD.md) · [ADR/](ADR/) · [CHANGELOG](../CHANGELOG.md)
+Documento complementario de cambios: [CHANGELOG](../CHANGELOG.md)
 
 ---
 
@@ -406,7 +336,7 @@ Documentos complementarios: [Model Card](MODEL_CARD.md) · [ADR/](ADR/) · [CHAN
 
 | Aspecto | Semana 1 (`main`) | Unidad 3 (propuesta) |
 | :--- | :--- | :--- |
-| Documento pipeline | PDF `docs/punto 1 descripcion pipeline MLops.pdf` | Este documento + README + CHANGELOG |
+| Documento pipeline | PDF en rama [`main`](https://github.com/WillianReinaG/2MLops_unidad1/blob/main/docs/punto%201%20descripcion%20pipeline%20MLops.pdf) | Este documento + README + CHANGELOG + [`PipeLineML.png`](../PipeLineML.png) |
 | Modelo | Reglas fijas `modelo_simulado.py` | LightGBM promovido con gates vs baseline |
 | Datos | Carpeta `data/` sin versionado | DVC + tags |
 | Despliegue | Docker manual | CI/CD → GHCR → edge + Cloud Run |
@@ -433,7 +363,7 @@ Documentos complementarios: [Model Card](MODEL_CARD.md) · [ADR/](ADR/) · [CHAN
 
 - [rchicangana/healthPrediction-mlops-U2 — rama `entrega3`](https://github.com/rchicangana/healthPrediction-mlops-U2/tree/entrega3) — estructura de referencia del curso  
 - Google MLOps maturity levels · Model Cards (Mitchell et al., 2019)  
-- Documento histórico Semana 1: `docs/punto 1 descripcion pipeline MLops.pdf` (rama `main`)
+- Propuesta Semana 1 (PDF solo en rama [`main`](https://github.com/WillianReinaG/2MLops_unidad1/blob/main/docs/punto%201%20descripcion%20pipeline%20MLops.pdf))
 
 ---
 

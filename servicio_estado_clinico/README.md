@@ -73,9 +73,7 @@ Este directorio es el **MVP baseline (Semana 1)**: reglas + Flask + Docker. Corr
 | **Propuesta Unidad 3 (entrega)** | [`docs/PROPUESTAPipeLine.md`](../docs/PROPUESTAPipeLine.md) |
 | CHANGELOG Semana 1 → Unidad 3 | [`CHANGELOG.md`](../CHANGELOG.md) |
 | README del repositorio | [`README.md`](../README.md) |
-| Model Card | [`docs/MODEL_CARD.md`](../docs/MODEL_CARD.md) |
-| ADR | [`docs/ADR/`](../docs/ADR/) |
-| Propuesta original Semana 1 | [`docs/punto 1 descripcion pipeline MLops.pdf`](../docs/punto%201%20descripcion%20pipeline%20MLops.pdf) |
+| Propuesta original Semana 1 | [PDF en rama `main`](https://github.com/WillianReinaG/2MLops_unidad1/blob/main/docs/punto%201%20descripcion%20pipeline%20MLops.pdf) |
 
 **Resumen:** LightGBM se promovería a Staging/PROD solo si supera estas reglas en F1 macro y **recall AGUDA** (~1,9 % del dataset), según gates en MLflow.
 

@@ -40,20 +40,9 @@ Estructura alineada al ejemplo del curso ([healthPrediction-mlops-U2 — `entreg
 
 ### Diagrama general (Unidad 3)
 
-Topología equivalente al diagrama `PipeLineML.drawio.png` del ejemplo; herramientas adaptadas a este repo (GitHub Actions, DVC, MLflow, Evidently, etc.):
+![Diagrama del pipeline MLOps](PipeLineML.png)
 
-```mermaid
-flowchart LR
-    DP[Data Pipeline<br/>DVC · GX · EDA]
-    DV[Develop<br/>CI · LightGBM · MLflow]
-    ST[Staging<br/>Registry · QA Medical]
-    PR[PROD<br/>Cloud Run · Edge]
-    MN[Monitoring<br/>Prometheus · Evidently]
-    DP --> DV --> ST --> PR --> MN
-    MN -->|Drift / retrain| DP
-```
-
-Diagrama completo con sub-etapas: [`docs/PROPUESTAPipeLine.md` §6](docs/PROPUESTAPipeLine.md#6-diagrama-general-del-pipeline).
+Topología alineada al ejemplo [`entrega3`](https://github.com/rchicangana/healthPrediction-mlops-U2/tree/entrega3) (Data Pipeline → Develop → Staging → PROD + monitoreo). Detalle por etapa: [`docs/PROPUESTAPipeLine.md` §6](docs/PROPUESTAPipeLine.md#6-diagrama-general-del-pipeline).
 
 ### CHANGELOG (Semana 1 → Unidad 3)
 
@@ -67,11 +56,9 @@ Evolución de la propuesta respecto a la rama `main` (PDF Semana 1 + MVP):
 
 | Ruta | Descripción |
 | :--- | :--- |
+| [`PipeLineML.png`](PipeLineML.png) | **Diagrama general** del pipeline (raíz) |
 | [`docs/PROPUESTAPipeLine.md`](docs/PROPUESTAPipeLine.md) | **Propuesta Unidad 3** — pipeline detallado |
 | [`CHANGELOG.md`](CHANGELOG.md) | Cambios vs propuesta Semana 1 (`main`) |
-| [`docs/MODEL_CARD.md`](docs/MODEL_CARD.md) | Model Card (alcance, métricas, ética) |
-| [`docs/ADR/`](docs/ADR/) | Decisiones de arquitectura |
-| [`docs/punto 1 descripcion pipeline MLops.pdf`](docs/punto%201%20descripcion%20pipeline%20MLops.pdf) | Propuesta original Semana 1 (rama `main`) |
 | [`data/`](data/) | CSV raw y procesado (~70 k filas) |
 | [`servicio_estado_clinico/`](servicio_estado_clinico/) | **MVP implementado** — Flask + reglas + Docker |
 | [`scripts/`](scripts/) | Preparación de datos |
