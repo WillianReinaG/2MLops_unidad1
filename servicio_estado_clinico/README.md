@@ -1,6 +1,6 @@
 # Servicio de estado clínico simulado
 
-Proyecto unidad uno MLOps
+Proyecto MLOps — MVP Semana 1 · Propuesta pipeline Unidad 3
 
 ## Qué hace
 
@@ -66,21 +66,18 @@ Servicio disponible en `http://localhost:5000/predecir` (POST) y `http://localho
 
 ## Rol de este servicio en el pipeline MLOps
 
-Este directorio contiene el **MVP baseline ya implementado**: reglas deterministas en `modelo_simulado.py`, servidas vía Flask y Docker.
-
-La **propuesta de producción** (documentada, no implementada aquí) define un modelo **LightGBM** en MLflow Registry, despliegue **local + cloud** (Cloud Run) y pipeline de **12 etapas**. Ver documentación completa:
+Este directorio es el **MVP baseline (Semana 1)**: reglas + Flask + Docker. Corresponde a **Api Deploy Dev** simplificado y al **champion inicial** frente a LightGBM.
 
 | Documento | Enlace |
 |-----------|--------|
-| Propuesta v3.0 (posgrado / Ops stack) | [`docs/PROPUESTA_PIPELINE_MLOPS.md`](../docs/PROPUESTA_PIPELINE_MLOPS.md) |
-| PDF entrega | [`docs/Pipeline_MLOps_Propuesta_Completa.pdf`](../docs/Pipeline_MLOps_Propuesta_Completa.pdf) |
+| **Propuesta Unidad 3 (entrega)** | [`docs/PROPUESTAPipeLine.md`](../docs/PROPUESTAPipeLine.md) |
+| CHANGELOG Semana 1 → Unidad 3 | [`CHANGELOG.md`](../CHANGELOG.md) |
+| README del repositorio | [`README.md`](../README.md) |
 | Model Card | [`docs/MODEL_CARD.md`](../docs/MODEL_CARD.md) |
-| ADR (decisiones de arquitectura) | [`docs/ADR/`](../docs/ADR/) |
-| CHANGELOG | [`docs/CHANGELOG.md`](../docs/CHANGELOG.md) |
-| Diagrama pipeline | [`docs/imgs/ml-pipeline-estado-clinico.png`](../docs/imgs/ml-pipeline-estado-clinico.png) |
-| Diagrama Ops stack | [`docs/imgs/arquitectura-ops-capas.png`](../docs/imgs/arquitectura-ops-capas.png) |
+| ADR | [`docs/ADR/`](../docs/ADR/) |
+| Propuesta original Semana 1 | [`docs/punto 1 descripcion pipeline MLops.pdf`](../docs/punto%201%20descripcion%20pipeline%20MLops.pdf) |
 
-**Resumen:** este servicio cumple la consigna académica con reglas interpretables. El equipo ML promovería LightGBM a producción solo si supera este baseline en F1 macro y recall de la clase AGUDA (~1,9 % del dataset).
+**Resumen:** LightGBM se promovería a Staging/PROD solo si supera estas reglas en F1 macro y **recall AGUDA** (~1,9 % del dataset), según gates en MLflow.
 
 ---
 

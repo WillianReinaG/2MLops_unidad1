@@ -1,167 +1,46 @@
-# CHANGELOG — Propuesta pipeline MLOps
+# Changelog (documentación extendida)
 
-Todos los cambios relevantes de la propuesta del pipeline MLOps para el proyecto **Estado clínico simulado**.
-
-Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/).
-
-## Referencias de versiones
-
-| Versión | Origen | Commit / artefacto |
-|---------|--------|-------------------|
-| **1.0.0** | Semana 1 | `f570021` — [`punto 1 descripcion pipeline MLops.pdf`](punto%201%20descripcion%20pipeline%20MLops.pdf) |
-| **1.1.0** | Unidad 3 (intermedia) | `c2d57d0` — [`PROPUESTA_PIPELINE_MLOPS.md`](PROPUESTA_PIPELINE_MLOPS.md) v1, 8 etapas ampliadas |
-| **2.0.0** | Unidad 3 (reestructuración E2E) | `43777e4` — 12 etapas, ML producción, despliegue híbrido |
-| **2.1.0** | Unidad 3 (estructura mlops-sample) | `b24ea2a` — Case Challenge + Offline Training \| Predictions |
-| **3.0.0** | Unidad 3 (nivel posgrado) | **Actual** — Ops stack, ADR, Model Card, SLI/SLO, AIOps, AgentOps |
+> **Entrega Unidad 3:** el CHANGELOG principal que compara **Semana 1 (`main`) vs Unidad 3 (`unidad3`)** está en la raíz del repositorio: [`../CHANGELOG.md`](../CHANGELOG.md).
 
 ---
 
-## [3.0.0] — Nivel posgrado / operación profesional (actual)
+## Resumen de versiones
+
+| Versión | Rama / momento | Documento principal |
+| :--- | :--- | :--- |
+| **1.0.0** | `main` — Semana 1 | `docs/punto 1 descripcion pipeline MLops.pdf` + MVP |
+| **2.0.0** | `unidad3` — Unidad 3 | [`PROPUESTAPipeLine.md`](PROPUESTAPipeLine.md) + [`../CHANGELOG.md`](../CHANGELOG.md) |
+
+---
+
+## [2.0.0] — Unidad 3 — Alineación ejemplo `entrega3` (actual)
 
 ### Added
 
-- **Ops stack** documentado: MLOps + DevOps + DevSecOps + AIOps + horizonte AgentOps.
-- Diagrama [`imgs/arquitectura-ops-capas.png`](imgs/arquitectura-ops-capas.png).
-- **ADR/** con tres Architecture Decision Records (baseline vs LightGBM, despliegue híbrido, observabilidad AIOps).
-- [`MODEL_CARD.md`](MODEL_CARD.md) — Model Card con limitaciones éticas y métricas objetivo.
-- **SLI/SLO/error budget** operativos definidos.
-- **RACI** y registro de suposiciones **S1–S10** (incl. AgentOps sin autonomía clínica).
-- Sección **madurez** Google MLOps L0–L4.
-- **DevSecOps:** Trivy, SBOM, cosign (evolución), Secret Manager.
-- **AgentOps (horizonte):** agentes Explainer/Ops/Intake con guardrails HITL.
+- [`PROPUESTAPipeLine.md`](PROPUESTAPipeLine.md): pipeline **Data Pipeline → Develop → Staging → PROD** con tecnologías y suposiciones por etapa.
+- [`../CHANGELOG.md`](../CHANGELOG.md): comparación explícita con propuesta Semana 1.
+- [`../README.md`](../README.md): índice del repo, diagrama Mermaid, enlace al pipeline.
+- Diagrama Mermaid de topología equivalente a `PipeLineML.drawio.png` del [ejemplo del curso](https://github.com/rchicangana/healthPrediction-mlops-U2/tree/entrega3).
 
 ### Changed
 
-- [`PROPUESTA_PIPELINE_MLOPS.md`](PROPUESTA_PIPELINE_MLOPS.md) v3.0: resumen ejecutivo profesional, gobernanza, consolidación de apéndices redundantes.
-- PDF ampliado con Ops stack, madurez, SLI/SLO, AIOps/AgentOps.
-- Hero diagram v3.0.
+- Enfoque documental: de PDF único + listas v3.x a formato **curso / entrega3** con justificación por herramienta.
+- Stack: GitHub Actions (no Jenkins), DVC (no PostgreSQL para train batch), Bandit+Trivy (no SonarQube), MLflow Registry, Evidently.
 
-### Removed
+### Unchanged (por diseño)
 
-- Redundancia de tablas duplicadas entre cuerpo y apéndices (consolidado en v3.0).
-- Tono exclusivamente “curso básico”; reemplazado por lenguaje de operación ML sin perder disclaimer académico.
-
-### Rationale
-
-- Elevar la propuesta a estándar **maestría/doctorado profesional** en MLOps y disciplinas *Ops* relacionadas, manteniendo MVP implementado y alcance académico honesto.
+- Código MVP en `servicio_estado_clinico/` — baseline Semana 1.
 
 ---
 
-## [2.1.0] — Alineación con mlops-sample
+## Historial de iteraciones documentales previas (referencia)
 
-### Added
+| Versión | Notas |
+| :--- | :--- |
+| 3.1.0 | Sustento por capa/fase (por qué / para qué / mejora) en `PROPUESTA_PIPELINE_MLOPS.md` |
+| 3.0.0 | Ops stack, ADR, Model Card, SLI/SLO |
+| 2.1.0 | Estructura Offline \| Predictions (mlops-sample) |
+| 2.0.0 | Propuesta ampliada 12 etapas |
+| 1.0.0 | PDF Semana 1 |
 
-- **Diagrama principal** estilo [avila196/mlops-sample](https://github.com/avila196/mlops-sample): [`imgs/ml-pipeline-estado-clinico.png`](imgs/ml-pipeline-estado-clinico.png) con bloques **Offline Training | Predictions | Bonus**.
-- Carpeta **`docs/imgs/`** para figuras (equivalente a `imgs/` del sample).
-- Secciones narrativas **Case Challenge**, **Part 1** (Offline Training + Predictions), **Part 2** (MVP implementado), **Part 3** (requisitos futuros).
-- Subsecciones espejo del sample: Data Input, Model Iterations, Model selection & evaluation, ¿Producción?, Model deployment, Inferencia tiempo real.
-- Referencia explícita al repo ejemplo en propuesta y PDF.
-
-### Changed
-
-- [`PROPUESTA_PIPELINE_MLOPS.md`](PROPUESTA_PIPELINE_MLOPS.md) reorganizado: narrativa Part 1/2/3 + apéndices técnicos (etapas 0–12, suposiciones, huérfanas).
-- PDF v2.1 prioriza diagrama principal mlops-sample en portada.
-- Comparación batch Spark/EMR (sample fintech) → inferencia unitaria médico local/cloud (nuestro dominio).
-
-### Rationale
-
-- El evaluador y equipos ML reconocen la estructura **Offline Training | Predictions** del curso/referencia.
-- Se conserva profundidad técnica v2.0 en apéndices sin perder legibilidad del diagrama central.
-
----
-
-## [2.0.0] — Reestructuración end-to-end
-
-### Added
-
-- Arquitectura de **12 etapas** (0–12): gobernanza, catálogo, feature store, registry, observabilidad, retraining continuo.
-- **Registro maestro de suposiciones** (S1–S8) con implicaciones y validación.
-- **Despliegue híbrido:** Docker Compose local (médico en PC) + **Google Cloud Run** / AWS App Runner (médico remoto).
-- Stack tecnológico concreto por etapa: **DVC**, **Great Expectations**, **Feast**, **LightGBM**, **Optuna**, **MLflow** (Tracking + Registry), **SHAP**, **GHCR**, **Prometheus/Grafana**, **Evidently AI**, **GitHub Actions**, **Prefect** (alternativa).
-- Cuatro diagramas: `diagrama_pipeline_e2e.png`, `diagrama_despliegue_hibrido.png`, `diagrama_cicd_mlops.png`, `diagrama_datos_ml.png`.
-- Sección **Baseline MVP vs producción objetivo** (reglas vs LightGBM).
-- Sección **CI/CD end-to-end** con jobs definidos.
-- **Plan de puesta en marcha** por fases (0–4) con duración, roles y entregables.
-- Política ML para **enfermedades huérfanas**: desbalance AGUDA, cuarentena de datos, flag `requiere_revision_humana`.
-- Seguridad: API keys, Secret Manager, TLS, logs sin PII.
-- Este archivo **CHANGELOG.md**.
-
-### Changed
-
-- Pipeline de **8 etapas lineales** → **12 etapas** con ciclo cerrado de retraining.
-- **Modelo de producción objetivo:** de “función simulada / evolución opcional ML” a **LightGBM supervisado** con reglas como **baseline MVP** ya implementado.
-- Herramientas de “evolución futura” → **decisiones explícitas** con alternativas descartadas justificadas en cada etapa.
-- Despliegue: solo Docker local → **local + cloud** con mismo contrato API.
-- Validación: lista genérica → **quality gates** (GX), evaluación con SHAP, gate humano de aprobación.
-- Monitoreo: logs básicos → **Prometheus + Grafana + Evidently** (drift y rendimiento).
-- Plantilla por etapa: ahora incluye **8 subsecciones obligatorias** (objetivo, suposiciones, I/O, tecnologías, proceso, criterios, riesgos, relación con repo).
-- PDF regenerado como [`Pipeline_MLOps_Propuesta_Completa.pdf`](Pipeline_MLOps_Propuesta_Completa.pdf) (~8–12 páginas).
-
-### Removed
-
-- Formulaciones vagas del tipo “herramientas viables en evolución” sin elección concreta.
-- Página vacía en PDF original (contenido incompleto de Semana 1).
-- Dependencia exclusiva de un único modo de despliegue (solo localhost).
-
-### Deprecated
-
-- [`diagrama_pipeline_mlops.png`](diagrama_pipeline_mlops.png) — sustituido por `diagrama_pipeline_e2e.png` (se mantiene por compatibilidad hasta próxima limpieza).
-
----
-
-## [1.1.0] — Unidad 3 intermedia (`c2d57d0`)
-
-### Added
-
-- [`PROPUESTA_PIPELINE_MLOPS.md`](PROPUESTA_PIPELINE_MLOPS.md) con argumentos por etapa.
-- Sección **enfermedades huérfanas** (desbalance + patologías no representadas).
-- Sección **entrenamiento/calibración** (reglas + camino ML evolutivo).
-- [`Pipeline_MLOps_Propuesta_Completa.pdf`](Pipeline_MLOps_Propuesta_Completa.pdf) y [`generar_pdf_pipeline_mlops.py`](generar_pdf_pipeline_mlops.py).
-- [`README.md`](../README.md) raíz con índice del proyecto.
-
-### Changed
-
-- README del servicio: enlace a documentación completa del pipeline.
-- Propuesta Semana 1 ampliada de párrafos breves a tablas por etapa.
-
----
-
-## [1.0.0] — Semana 1 (`f570021`)
-
-### Added
-
-- Propuesta inicial en PDF: 8 etapas (datos → monitoreo).
-- Secciones (A) Diseño, (B) Desarrollo, (C) Despliegue/monitoreo.
-- Diagrama simple de pipeline.
-- Implementación MVP: reglas en `modelo_simulado.py`, Flask, Dockerfile, datos en `data/`.
-
-### Limitaciones conocidas (v1.0.0)
-
-- Texto argumentativo insuficiente para evaluación “Propuesta excelente”.
-- Sin detalle de enfermedades huérfanas ni entrenamiento concreto.
-- Sin despliegue cloud ni stack MLOps moderno definido.
-- Tercera página del PDF vacía.
-
----
-
-## Rationale — Por qué evolucionó la propuesta
-
-| Decisión v2.0.0 | Motivo |
-|-----------------|--------|
-| 12 etapas vs 8 | Alinear con MLOps maduro (CD4ML): catálogo, feature store, registry, observabilidad y retrain como etapas propias, no notas al pie. |
-| LightGBM en producción | Datos tabulares, CPU, interpretable con SHAP; supera reglas si se mide en F1/recall AGUDA. Reglas quedan como baseline auditable ya entregado. |
-| Despliegue híbrido | Restricción del enunciado: médico en PC local **o** vía servicio remoto; Cloud Run minimiza ops y costo. |
-| DVC + MLflow | Estándar de facto en equipos ML pequeños; reproducibilidad exigible por evaluador técnico. |
-| Suposiciones explícitas | Problema abierto; el evaluador debe ver qué se asume y qué pasa si falla. |
-| CHANGELOG | Requisito del ejercicio: evidenciar cambios Semana 1 → entrega actual. |
-
----
-
-## Comparativa rápida
-
-| Tema | v2.1.0 | v3.0.0 Actual |
-|------|--------|---------------|
-| Ops stack | MLOps implícito | MLOps + DevOps + DevSecOps + AIOps + AgentOps |
-| Gobernanza | Suposiciones S1–S8 | + ADR, Model Card, RACI, SLO |
-| AgentOps | No | Horizonte documentado |
-| PDF | ~5 páginas | ~7 páginas, ops + SLO |
+El documento [`PROPUESTA_PIPELINE_MLOPS.md`](PROPUESTA_PIPELINE_MLOPS.md) conserva iteraciones 2.x–3.x como **referencia histórica**. La entrega Unidad 3 oficial es [`PROPUESTAPipeLine.md`](PROPUESTAPipeLine.md).

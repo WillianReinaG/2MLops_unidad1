@@ -1,42 +1,100 @@
-# 2MLops — Estado clínico simulado
+# Objetivo
 
-Propuesta **MLOps end-to-end v3.0** (nivel posgrado): MLOps · DevOps · DevSecOps · AIOps · AgentOps (horizonte). MVP de inferencia implementado con reglas + Flask + Docker.
+Clasificación orientativa del **estado clínico simulado** en cuatro categorías, en el marco de la materia **MLOps (MIAA — ICESI)**.
 
-**Repositorio:** [github.com/WillianReinaG/2MLops_unidad1](https://github.com/WillianReinaG/2MLops_unidad1) · **Rama:** `unidad3`
+## Contexto del problema
 
-## Documentación principal
+El dominio médico genera mucha información, pero en problemas reales suele haber **asimetría en los datos**:
 
-| Documento | Contenido |
-|-----------|-----------|
-| [`docs/PROPUESTA_PIPELINE_MLOPS.md`](docs/PROPUESTA_PIPELINE_MLOPS.md) | Propuesta v3.0 completa |
-| [`docs/Pipeline_MLOps_Propuesta_Completa.pdf`](docs/Pipeline_MLOps_Propuesta_Completa.pdf) | PDF para entrega |
-| [`docs/MODEL_CARD.md`](docs/MODEL_CARD.md) | Model Card (limitaciones, métricas, ética) |
-| [`docs/CHANGELOG.md`](docs/CHANGELOG.md) | Evolución Semana 1 → v3.0 |
-| [`docs/ADR/`](docs/ADR/) | Architecture Decision Records |
+- **Condiciones frecuentes / “comunes”:** abundancia de ejemplos (p. ej. `ENFERMEDAD LEVE`).
+- **Condiciones minoritarias / “huérfanas” en sentido académico:** pocos ejemplos (p. ej. `ENFERMEDAD AGUDA` ≈ **1,9 %** del dataset) o patologías **no presentes** en el CSV de entrenamiento.
 
-## Diagramas
+> Las enfermedades huérfanas en medicina real son crónicas, graves y de baja prevalencia. En este taller se simula el **desbalance** y se documenta la política cuando el caso **no está en los datos**.
 
-| Figura | Archivo |
-|--------|---------|
-| Pipeline Offline \| Predictions | [`docs/imgs/ml-pipeline-estado-clinico.png`](docs/imgs/ml-pipeline-estado-clinico.png) |
-| Ops stack (MLOps…AgentOps) | [`docs/imgs/arquitectura-ops-capas.png`](docs/imgs/arquitectura-ops-capas.png) |
-| Despliegue híbrido | [`docs/diagrama_despliegue_hibrido.png`](docs/diagrama_despliegue_hibrido.png) |
-| CI/CD | [`docs/diagrama_cicd_mlops.png`](docs/diagrama_cicd_mlops.png) |
+## Requerimiento del proyecto
 
-```powershell
-pip install matplotlib reportlab
-python docs/generar_pdf_pipeline_mlops.py
+Construir un **modelo predictivo** (evolución: de reglas MVP a **LightGBM** en producción propuesta) que estime el estado clínico simulado a partir de signos vitales y hábitos, con un **pipeline MLOps** reproducible, desplegable y monitoreado.
+
+## Objetivos del modelo
+
+- **Clases frecuentes:** clasificar con estabilidad cuando hay muchos datos de entrenamiento.
+- **Clase minoritaria (AGUDA):** no sacrificar **recall** por accuracy global engañosa.
+- **Casos fuera de dominio:** respuesta conservadora + revisión humana, sin inventar etiquetas.
+
+---
+
+## Diseño del pipeline
+
+Para arquitectura técnica, **stack por etapa**, **suposiciones**, **justificaciones** y **diagrama general**, consulta:
+
+**[`docs/PROPUESTAPipeLine.md`](docs/PROPUESTAPipeLine.md)**
+
+Estructura alineada al ejemplo del curso ([healthPrediction-mlops-U2 — `entrega3`](https://github.com/rchicangana/healthPrediction-mlops-U2/tree/entrega3)):
+
+| Bloque | Contenido resumido |
+| :--- | :--- |
+| **Data Pipeline** | DVC, EDA, Great Expectations, features Feast/sklearn |
+| **Develop** | Bandit/Trivy, pytest, LightGBM+Optuna, MLflow, Api Deploy Dev |
+| **Staging** | Build, MLflow Registry, Api Deploy ST, QA Medical simulado |
+| **PROD** | Cloud Run + edge, monitoreo Prometheus/Grafana/Evidently, re-entrenamiento |
+
+### Diagrama general (Unidad 3)
+
+Topología equivalente al diagrama `PipeLineML.drawio.png` del ejemplo; herramientas adaptadas a este repo (GitHub Actions, DVC, MLflow, Evidently, etc.):
+
+```mermaid
+flowchart LR
+    DP[Data Pipeline<br/>DVC · GX · EDA]
+    DV[Develop<br/>CI · LightGBM · MLflow]
+    ST[Staging<br/>Registry · QA Medical]
+    PR[PROD<br/>Cloud Run · Edge]
+    MN[Monitoring<br/>Prometheus · Evidently]
+    DP --> DV --> ST --> PR --> MN
+    MN -->|Drift / retrain| DP
 ```
 
-## MVP vs producción
+Diagrama completo con sub-etapas: [`docs/PROPUESTAPipeLine.md` §6](docs/PROPUESTAPipeLine.md#6-diagrama-general-del-pipeline).
 
-| | MVP (repo) | Producción (propuesta) |
-|--|------------|------------------------|
-| Modelo | Reglas `modelo_simulado.py` | LightGBM + MLflow |
-| Deploy | Docker local | Edge + Cloud Run |
-| Ops | Manual | CI/CD, SLO, AIOps |
+### CHANGELOG (Semana 1 → Unidad 3)
 
-## Servicio MVP
+Evolución de la propuesta respecto a la rama `main` (PDF Semana 1 + MVP):
+
+**[`CHANGELOG.md`](CHANGELOG.md)**
+
+---
+
+## Estructura del repositorio
+
+| Ruta | Descripción |
+| :--- | :--- |
+| [`docs/PROPUESTAPipeLine.md`](docs/PROPUESTAPipeLine.md) | **Propuesta Unidad 3** — pipeline detallado |
+| [`CHANGELOG.md`](CHANGELOG.md) | Cambios vs propuesta Semana 1 (`main`) |
+| [`docs/MODEL_CARD.md`](docs/MODEL_CARD.md) | Model Card (alcance, métricas, ética) |
+| [`docs/ADR/`](docs/ADR/) | Decisiones de arquitectura |
+| [`docs/punto 1 descripcion pipeline MLops.pdf`](docs/punto%201%20descripcion%20pipeline%20MLops.pdf) | Propuesta original Semana 1 (rama `main`) |
+| [`data/`](data/) | CSV raw y procesado (~70 k filas) |
+| [`servicio_estado_clinico/`](servicio_estado_clinico/) | **MVP implementado** — Flask + reglas + Docker |
+| [`scripts/`](scripts/) | Preparación de datos |
+
+**Rama de entrega Unidad 3:** `unidad3`  
+**Repositorio:** [github.com/WillianReinaG/2MLops_unidad1](https://github.com/WillianReinaG/2MLops_unidad1)
+
+---
+
+## Path: `/servicio_estado_clinico`
+
+### Servicio de estado clínico simulado (Flask)
+
+API mínima que clasifica en cuatro estados a partir de signos vitales. Expone:
+
+- **`POST /predecir`** — JSON → etiqueta clínica simulada  
+- **`/`** — formulario web de prueba  
+
+La lógica actual es **determinista** (`modelo_simulado.py`); la propuesta Unidad 3 define promoción a **LightGBM** solo si supera el baseline en MLflow.
+
+Documentación de uso (Docker, curl, campos JSON): [`servicio_estado_clinico/README.md`](servicio_estado_clinico/README.md)
+
+### Ejecución rápida con Docker
 
 ```powershell
 cd servicio_estado_clinico
@@ -44,4 +102,31 @@ docker build -t estado-clinico-demo .
 docker run --rm -p 5000:5000 estado-clinico-demo
 ```
 
-**No usar para decisiones clínicas reales.**
+Abrir `http://localhost:5000/`.
+
+---
+
+## Stack resumido (propuesta Unidad 3)
+
+| Categoría | Herramientas |
+| :--- | :--- |
+| Lenguaje / VCS | Python, GitHub |
+| CI/CD | GitHub Actions |
+| Contenedores | Docker, GHCR |
+| Datos | DVC, MinIO/S3, Great Expectations |
+| ML | LightGBM, Optuna, MLflow, SHAP |
+| Cloud | Google Cloud Run |
+| Monitoreo | Prometheus, Grafana, Evidently |
+| Seguridad | Bandit, Trivy |
+
+*(Comparación detallada con Semana 1 y con el ejemplo `entrega3`: ver [`CHANGELOG.md`](CHANGELOG.md).)*
+
+---
+
+## Aviso
+
+Trabajo **académico y simulado**. No usar para decisiones clínicas reales.
+
+---
+
+Willian Reina G. — MIAA
